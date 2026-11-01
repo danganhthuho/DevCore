@@ -35,6 +35,7 @@ export default function ReportsPage() {
           <tr><th>Units in stock</th><td>{totals.units}</td></tr>
           <tr><th>Inventory value</th><td>{money(totals.value)}</td></tr>
           <tr><th>Low stock</th><td>{totals.lowStock}</td></tr>
+          <tr><th>Almost expired</th><td>{totals.almostExpired}</td></tr>
           <tr><th>Expired</th><td>{totals.expired}</td></tr>
         </tbody>
       </table>

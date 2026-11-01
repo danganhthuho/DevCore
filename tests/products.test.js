@@ -108,7 +108,17 @@ describe('Stock status badge', () => {
     expect(stockStatus({ quantity: 50, minimum_quantity: 10, expiration_date: '2026-10-11' }, today)).toBe('Expired');
   });
 
+  it('is Almost Expired within 7 days of the expiration date', () => {
+    expect(stockStatus({ quantity: 50, minimum_quantity: 10, expiration_date: '2026-10-12' }, today)).toBe('Almost Expired');
+    expect(stockStatus({ quantity: 50, minimum_quantity: 10, expiration_date: '2026-10-19' }, today)).toBe('Almost Expired');
+  });
+
+  it('shows Low stock before Almost Expired', () => {
+    expect(stockStatus({ quantity: 5, minimum_quantity: 10, expiration_date: '2026-10-14' }, today)).toBe('Low stock');
+  });
+
   it('is In stock otherwise', () => {
-    expect(stockStatus({ quantity: 50, minimum_quantity: 10, expiration_date: '2026-10-12' }, today)).toBe('In stock');
+    expect(stockStatus({ quantity: 50, minimum_quantity: 10, expiration_date: '2026-10-20' }, today)).toBe('In stock');
+    expect(stockStatus({ quantity: 50, minimum_quantity: 10 }, today)).toBe('In stock');
   });
 });

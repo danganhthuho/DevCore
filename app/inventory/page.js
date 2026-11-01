@@ -16,7 +16,12 @@ const COLUMNS = [
     ['status', 'Status'],
 ];
 
-const BADGE_CLASS = { 'In stock': 'in-stock', 'Low stock': 'low-stock', Expired: 'expired' };
+const BADGE_CLASS = {
+    'In stock': 'in-stock',
+    'Low stock': 'low-stock',
+    'Almost Expired': 'almost-expired',
+    Expired: 'expired',
+};
 
 export default function InventoryPage() {
     const router = useRouter();
@@ -73,7 +78,7 @@ export default function InventoryPage() {
         alert(body.error || 'Delete failed.');
     }
 
-    const handleScane = useCallback(async (code) => {
+    const handleScan = useCallback(async (code) => {
         setScanning(false);
         const res = await fetch(`/api/products/barcode/${encodeURIComponent(code)}`);
         if (res.ok) {

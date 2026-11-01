@@ -46,6 +46,13 @@ th.sortable { cursor: pointer; }
 .badge { display: inline-block; padding: 2px 10px; border-radius: 4px; color: white; font-size: 12px; }
 .badge.in-stock { background: #059669; }
 .badge.low-stock { background: #dc2626; }
+.badge.almost-expired { background: #b45309; }
 .badge.expired { background: #6b7280; }
+
+.navbar { display: flex; align-items: center; gap: 16px; padding: 12px 16px; background: white; border-bottom: 1px solid #d1d5db; flex-wrap: wrap; }
+.navbar .brand { font-weight: 600; margin-right: auto; }
+.navbar a { color: #1f2937; text-decoration: none; }
+.navbar a.active { color: #2563eb; font-weight: 600; }
+.navbar .user { color: #6b7280; font-size: 13px; }
 
 .link-button { background: none; color: #2563eb; padding: 0; }

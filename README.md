@@ -107,7 +107,7 @@ All endpoints require a logged-in session. Expired or missing sessions return `4
 | POST | `/api/auth/login` | Log in with `{ email, password }` |
 | POST | `/api/auth/logout` | Log out |
 | GET | `/api/auth/me` | Current user and role |
-| GET | `/api/products?q=&category=&status=` | List and search products |
+| GET | `/api/products?search=&category=&status=` | List and search products |
 | POST | `/api/products` | Create a product |
 | GET | `/api/products/:id` | Get one product |
 | PUT | `/api/products/:id` | Update a product |
