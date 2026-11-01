@@ -11,7 +11,7 @@ const products = [
 describe('Inventory report', () => {
   it('totals units, value and statuses', () => {
     const { totals, byCategory } = buildInventoryReport(products, now);
-    expect(totals).toEqual({ products: 3, units: 66, value: 558.96, lowStock: 1, expired: 1 });
+    expect(totals).toEqual({ products: 3, units: 66, value: 558.96, lowStock: 1, almostExpired: 0, expired: 1 });
     expect(byCategory.map((c) => c.category)).toEqual(['Dairy', 'Grocery']);
   });
 
