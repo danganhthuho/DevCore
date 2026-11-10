@@ -147,4 +147,7 @@ There are also tests for stock status and the inventory report/CSV export.
 
 ## Team
 
-DevCore – CMPE 131, Section 05. Project manager: Dang Anh Thu Ho.
+DevCore – CMPE 131, Section 05. 
+
+- Project manager: Dang Anh Thu Ho.
+- Dev A: Thomas Johnson
