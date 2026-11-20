@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { LogoIcon } from '@/components/Icons';
+import Brand from '@/components/Brand';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -82,8 +82,8 @@ export default function LoginPage() {
     <div className="login-page">
       <section className="login-brand">
         <div className="brand">
-          <span className="brand-mark"><LogoIcon size={20} /></span>
-          <span className="brand-name">Inventory Tracker<small>DevCore</small></span>
+          <Brand tone="white" height={34} />
+          <span className="brand-name">Inventory Tracker</span>
         </div>
 
         <div>

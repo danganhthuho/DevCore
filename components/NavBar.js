@@ -4,10 +4,11 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  BellIcon, BoxIcon, ChartIcon, DashboardIcon, FactoryIcon, LogoIcon, LogoutIcon,
+  BellIcon, BoxIcon, ChartIcon, DashboardIcon, FactoryIcon, LogoutIcon,
   SearchIcon, ShieldIcon, TruckIcon, UsersIcon,
 } from '@/components/Icons';
 import { hasRole } from '@/lib/auth/roles';
+import Brand from '@/components/Brand';
 
 // [href, label, icon, lowest role that sees it]. The API checks roles too.
 // Also used by the ⌘K command palette.
@@ -67,9 +68,9 @@ export default function NavBar() {
 
   return (
     <nav className="sidebar" aria-label="Main">
-      <Link href="/dashboard" className="brand">
-        <span className="brand-mark"><LogoIcon size={20} /></span>
-        <span className="brand-name">Inventory Tracker<small>DevCore</small></span>
+      <Link href="/dashboard" className="brand" aria-label="DevCore Inventory Tracker, go to dashboard">
+        <Brand height={26} compactOnPhone />
+        <span className="brand-name">Inventory Tracker</span>
       </Link>
 
       <button type="button" className="search-trigger" onClick={() => window.dispatchEvent(new Event('open-palette'))}

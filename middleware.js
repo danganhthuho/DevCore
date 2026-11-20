@@ -93,6 +93,8 @@ function deny(request, response, reason) {
   return denied;
 }
 
+// Skip Next.js internals and public images/icons (the logo must load on the
+// login page, before anyone is logged in).
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|icon.png|apple-icon.png|brand/|.*\\.(?:png|jpg|jpeg|svg|webp|ico)$).*)'],
 };

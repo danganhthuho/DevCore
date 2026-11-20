@@ -1,3 +1,5 @@
+<p align="center"><img src="public/brand/devcore-logo.png" alt="DevCore" width="320"></p>
+
 # DevCore – AI Inventory Tracker
 
 Team project for CMPE 131 (Section 05).
