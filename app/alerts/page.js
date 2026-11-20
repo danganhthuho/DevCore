@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useToast } from '@/components/Feedback';
+import { useConfirm, useToast } from '@/components/Feedback';
 import { isManager } from '@/lib/auth/roles';
 
 const ALERT_BADGE = {
@@ -20,6 +20,7 @@ function formatDate(value) {
 export default function AlertsPage() {
   const router = useRouter();
   const toast = useToast();
+  const confirm = useConfirm();
   const [alerts, setAlerts] = useState([]);
   const [recommendations, setRecommendations] = useState([]);
   const [role, setRole] = useState('Staff');
@@ -27,8 +28,8 @@ export default function AlertsPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(null);
 
+  // Only the first load shows "Loading…"; later reloads update in place.
   const load = useCallback(async () => {
-    setLoading(true);
     const [alertsRes, reorderRes, meRes] = await Promise.all([
       fetch('/api/alerts'),
       fetch('/api/reorder?all=true'),
@@ -51,6 +52,7 @@ export default function AlertsPage() {
     if (meRes.ok) setRole((await meRes.json()).role);
     setError('');
     setLoading(false);
+    window.dispatchEvent(new Event('alerts-changed')); // refresh the sidebar count
   }, [router]);
 
   useEffect(() => { load(); }, [load]);
@@ -65,6 +67,16 @@ export default function AlertsPage() {
     setBusy(null);
     if (res.ok) load();
     else setError('Could not mark the alert as read.');
+  }
+
+  async function markAllRead() {
+    setBusy('all');
+    const res = await fetch('/api/alerts/read-all', { method: 'POST' });
+    const body = await res.json().catch(() => ({}));
+    setBusy(null);
+    if (!res.ok) return toast(body.error || 'Could not mark alerts as read.', 'error');
+    toast(`${body.marked} alert${body.marked === 1 ? '' : 's'} marked as read.`);
+    load();
   }
 
   // SFDS 6.2 alert card: clicking opens the related product and marks the alert read.
@@ -92,6 +104,38 @@ export default function AlertsPage() {
       toast(`Forecast updated: ${body.predictedDemand} units over the next ${body.forecastDays} days.`);
     }
     load();
+  }
+
+  // "Order all recommended": one Pending Approval order per product that
+  // needs a reorder and has a supplier.
+  async function orderAll() {
+    const rows = recommendations.filter((r) => r.needs_reorder && r.supplier_id);
+    const bySupplier = {};
+    for (const r of rows) bySupplier[r.supplier_name ?? 'Supplier'] = (bySupplier[r.supplier_name ?? 'Supplier'] ?? 0) + 1;
+    const noSupplier = recommendations.filter((r) => r.needs_reorder && !r.supplier_id).length;
+
+    const ok = await confirm({
+      title: `Request ${rows.length} purchase order${rows.length === 1 ? '' : 's'}?`,
+      message: Object.entries(bySupplier).map(([name, n]) => `${name}: ${n}`).join(' · ')
+        + (noSupplier ? ` · ${noSupplier} skipped (no supplier)` : '')
+        + '. Each uses the recommended quantity and waits for a manager\'s approval.',
+      confirmLabel: 'Request orders',
+    });
+    if (!ok) return;
+
+    setBusy('order-all');
+    const res = await fetch('/api/purchase-orders/bulk', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        items: rows.map((r) => ({ product_id: r.product_id, supplier_id: r.supplier_id, quantity: r.recommended_quantity })),
+      }),
+    });
+    const body = await res.json().catch(() => ({}));
+    setBusy(null);
+    if (!res.ok) return toast(body.error || 'Could not create the orders.', 'error');
+    toast(`${body.created.length} purchase orders requested.`);
+    router.push('/orders');
   }
 
   async function createOrder(row) {
@@ -130,7 +174,14 @@ export default function AlertsPage() {
       {loading ? <p>Loading…</p> : (
         <>
           <section className="section-card">
-            <h2>Notifications</h2>
+            <div className="panel-head">
+              <h2>Notifications</h2>
+              {alerts.some((a) => !a.is_read) && (
+                <button className="secondary small" onClick={markAllRead} disabled={busy === 'all'}>
+                  {busy === 'all' ? 'Marking…' : 'Mark all as read'}
+                </button>
+              )}
+            </div>
             {alerts.length === 0 ? <p>No alerts yet.</p> : (
               <div className="table-wrap">
                 <table>
@@ -165,7 +216,15 @@ export default function AlertsPage() {
           </section>
 
           <section className="section-card">
-            <h2>Reorder Recommendations</h2>
+            <div className="panel-head">
+              <h2>Reorder Recommendations</h2>
+              {recommendations.some((r) => r.needs_reorder && r.supplier_id) && (
+                <button className="small" onClick={orderAll} disabled={busy === 'order-all'}>
+                  {busy === 'order-all' ? 'Requesting…'
+                    : `Order all recommended (${recommendations.filter((r) => r.needs_reorder && r.supplier_id).length})`}
+                </button>
+              )}
+            </div>
             <p className="muted">Recommendation = minimum quantity + latest 30-day forecast − current quantity.</p>
             {recommendations.length === 0 ? <p>No products yet.</p> : (
               <div className="table-wrap">

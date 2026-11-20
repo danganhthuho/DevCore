@@ -81,6 +81,19 @@ create table public.waste_records (
   recorded_at timestamptz not null default now()
 );
 
+-- Product history (Edit Product screen). actor_name is copied in when the
+-- row is written, so everyone can see who did it.
+create table public.product_activity (
+  id         bigserial primary key,
+  product_id int  not null references public.products (id) on delete cascade,
+  user_id    uuid not null references public.profiles (id),
+  actor_name varchar(100) not null,
+  action     varchar(20)  not null,
+  detail     varchar(300),
+  created_at timestamptz  not null default now()
+);
+create index product_activity_product_idx on public.product_activity (product_id, created_at desc);
+
 -- Every new auth user gets a Staff profile. Promote the first Owner by hand;
 -- after that the Owner can change roles on the Team page:
 --   update public.profiles set role = 'Owner' where username = 'owner@example.com';
@@ -133,6 +146,7 @@ alter table public.demand_forecasts enable row level security;
 alter table public.alerts           enable row level security;
 alter table public.purchase_orders  enable row level security;
 alter table public.waste_records    enable row level security;
+alter table public.product_activity enable row level security;
 
 create policy "profiles: read own, managers read all" on public.profiles
   for select to authenticated using (id = auth.uid() or public.is_manager());
@@ -173,6 +187,11 @@ create policy "purchase orders: create" on public.purchase_orders
   with check (created_by = auth.uid() and status = 'Pending Approval');
 create policy "purchase orders: managers update" on public.purchase_orders
   for update to authenticated using (public.is_manager()) with check (public.is_manager());
+
+create policy "activity: read" on public.product_activity
+  for select to authenticated using (true);
+create policy "activity: add" on public.product_activity
+  for insert to authenticated with check (user_id = auth.uid());
 
 create policy "waste: read" on public.waste_records
   for select to authenticated using (true);

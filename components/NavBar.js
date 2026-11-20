@@ -5,12 +5,13 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   BellIcon, BoxIcon, ChartIcon, DashboardIcon, FactoryIcon, LogoIcon, LogoutIcon,
-  ShieldIcon, TruckIcon, UsersIcon,
+  SearchIcon, ShieldIcon, TruckIcon, UsersIcon,
 } from '@/components/Icons';
 import { hasRole } from '@/lib/auth/roles';
 
 // [href, label, icon, lowest role that sees it]. The API checks roles too.
-const LINKS = [
+// Also used by the ⌘K command palette.
+export const LINKS = [
   ['/dashboard', 'Dashboard', DashboardIcon, 'Staff'],
   ['/inventory', 'Inventory', BoxIcon, 'Staff'],
   ['/alerts', 'Alerts & Reorder', BellIcon, 'Staff'],
@@ -41,6 +42,20 @@ export default function NavBar() {
     return () => window.removeEventListener('profile-updated', load);
   }, []);
 
+  // Unread alert count: on every page change, when the Alerts page changes
+  // something, and once a minute.
+  const [unread, setUnread] = useState(0);
+  useEffect(() => {
+    const load = () => fetch('/api/alerts/count').then((r) => r.ok && r.json()).then((d) => d && setUnread(d.unread));
+    load();
+    const timer = setInterval(load, 60000);
+    window.addEventListener('alerts-changed', load);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('alerts-changed', load);
+    };
+  }, [pathname]);
+
   async function handleLogout() {
     await fetch('/api/auth/logout', { method: 'POST' });
     setMe(null);
@@ -57,10 +72,18 @@ export default function NavBar() {
         <span className="brand-name">Inventory Tracker<small>DevCore</small></span>
       </Link>
 
+      <button type="button" className="search-trigger" onClick={() => window.dispatchEvent(new Event('open-palette'))}
+        aria-label="Search products and pages">
+        <SearchIcon size={16} /><span>Search…</span><kbd>⌘K</kbd>
+      </button>
+
       {LINKS.filter(([, , , role]) => role === 'Staff' || hasRole(me?.role, role)).map(([href, label, Icon]) => (
         <Link key={href} href={href} className={`nav-link${isActive(href) ? ' active' : ''}`}
           aria-current={isActive(href) ? 'page' : undefined} title={label}>
           <Icon /><span>{label}</span>
+          {href === '/alerts' && unread > 0 && (
+            <b className="nav-count" aria-label={`${unread} unread alerts`}>{unread > 99 ? '99+' : unread}</b>
+          )}
         </Link>
       ))}
 

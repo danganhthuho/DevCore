@@ -314,6 +314,99 @@ code {
 .row-unread td { font-weight: 650; }
 .row-unread td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
 
+/* ---------- Product insights: sales chart + history ---------- */
+
+.insights { margin-top: 24px; }
+.insights .section-card { margin-bottom: 0; min-width: 0; }
+.mini-stats { display: flex; flex-wrap: wrap; gap: 6px 20px; margin: 4px 0 12px; font-size: 13px; color: var(--muted); }
+.mini-stats strong { color: var(--text); font-size: 15px; font-variant-numeric: tabular-nums; }
+.mini-stats em { font-style: normal; font-weight: 700; }
+.mini-stats em.up { color: var(--accent); }
+.mini-stats em.down { color: var(--danger); }
+
+.chart { width: 100%; height: auto; display: block; }
+.chart-grid { stroke: var(--border); stroke-width: 1; }
+.chart-axis { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.chart-bar { fill: var(--accent); opacity: 0.55; }
+.chart-bar.current { opacity: 1; }
+.chart-bar:hover { opacity: 0.85; }
+.chart-forecast { stroke: var(--warn); stroke-width: 2; stroke-dasharray: 6 5; }
+.chart-forecast-label { fill: var(--warn); font-size: 12px; font-weight: 700; }
+
+.timeline { list-style: none; margin: 0; padding: 0; max-height: 360px; overflow-y: auto; }
+.timeline li { display: flex; gap: 12px; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.timeline li:last-child { border-bottom: none; }
+.timeline .body { min-width: 0; flex: 1; }
+.timeline .body p { margin: 0; font-size: 14px; }
+.timeline .body small { color: var(--muted); }
+.timeline .badge { min-width: 92px; justify-content: center; }
+.badge.activity-created, .badge.activity-imported { color: var(--accent); background: var(--accent-soft); }
+.badge.activity-sale { color: var(--info); background: var(--info-soft); }
+.badge.activity-waste { color: var(--danger); background: var(--danger-soft); }
+.badge.activity-order { color: var(--violet); background: var(--violet-soft); }
+.badge.activity-quantity { color: var(--warn); background: var(--warn-soft); }
+
+/* ---------- Inventory quantity stepper ---------- */
+
+.stepper { display: inline-flex; align-items: center; gap: 2px; }
+.stepper button {
+  width: 26px; height: 26px; padding: 0; border-radius: 6px; font-size: 16px; line-height: 1;
+  background: var(--surface); color: var(--text); border: 1px solid var(--border-strong);
+}
+.stepper button:hover { background: var(--surface-2); }
+.stepper .value { min-width: 40px; text-align: center; font-variant-numeric: tabular-nums; font-weight: 600; }
+.stepper.saving .value { opacity: 0.5; }
+
+/* ---------- Sidebar count badge ---------- */
+
+.nav-count {
+  margin-left: auto; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px;
+  display: inline-grid; place-items: center; font-size: 11px; font-weight: 700;
+  background: var(--danger); color: #fff;
+}
+@media (max-width: 860px) { .nav-count { margin-left: 0; } }
+
+/* ---------- Command palette (⌘K) ---------- */
+
+.palette-backdrop {
+  position: fixed; inset: 0; z-index: 95; display: grid; justify-items: center; align-items: start;
+  padding: 12vh 16px 16px; background: rgb(8 14 11 / 0.45); animation: fade-in 0.12s ease-out;
+}
+.palette {
+  width: 100%; max-width: 560px; overflow: hidden;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-lg);
+}
+.palette input { height: 52px; border: none; border-bottom: 1px solid var(--border); border-radius: 0; font-size: 16px; padding: 0 18px; }
+.palette input:focus { box-shadow: none; }
+.palette ul { list-style: none; margin: 0; padding: 6px; max-height: 50vh; overflow-y: auto; }
+.palette li { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: var(--radius-sm); cursor: pointer; font-size: 14px; }
+.palette li[aria-selected="true"] { background: var(--accent-soft); color: var(--accent); }
+.palette li small { margin-left: auto; color: var(--muted); }
+.palette .group { padding: 8px 12px 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); cursor: default; }
+.palette .hint { padding: 10px 18px; border-top: 1px solid var(--border); font-size: 12px; color: var(--muted); }
+kbd {
+  font-family: inherit; font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 4px;
+  border: 1px solid var(--border-strong); background: var(--surface-2); color: var(--muted);
+}
+.search-trigger {
+  display: flex; align-items: center; gap: 8px; width: 100%; height: 36px; padding: 0 10px; margin-bottom: 8px;
+  background: var(--surface-2); color: var(--muted); border: 1px solid var(--border); font-weight: 500; justify-content: flex-start;
+}
+.search-trigger:hover { background: var(--surface-2); border-color: var(--border-strong); color: var(--text); }
+.search-trigger kbd { margin-left: auto; }
+@media (max-width: 860px) { .search-trigger { width: auto; margin: 0; } .search-trigger span, .search-trigger kbd { display: none; } }
+
+/* ---------- Import ---------- */
+
+.dropzone {
+  display: grid; place-items: center; gap: 8px; padding: 32px 16px; text-align: center;
+  border: 2px dashed var(--border-strong); border-radius: var(--radius); background: var(--surface-2); color: var(--muted);
+}
+.dropzone.over { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.import-summary { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+tr.row-error td { background: var(--danger-soft); }
+td .error { margin: 0; }
+
 /* ---------- Login ---------- */
 
 .login-page { min-height: 100vh; display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); }
@@ -369,6 +462,8 @@ code {
 .toast p { margin: 0; flex: 1; }
 .toast button { height: auto; padding: 0 2px; background: none; color: var(--muted); border: none; font-size: 18px; line-height: 1; }
 .toast button:hover { background: none; color: var(--text); }
+.toast button.toast-action { font-size: 14px; font-weight: 700; color: var(--accent); padding: 0 4px; }
+.toast button.toast-action:hover { text-decoration: underline; color: var(--accent); }
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
 
 .dialog-backdrop {

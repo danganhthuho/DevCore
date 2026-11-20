@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireUser, requireRole } from '@/lib/auth/session';
 import { getProduct, updateProduct, deleteProduct } from '@/lib/products/service';
 import { onProductChanged } from '@/lib/events';
+import { describeChanges, recordActivity } from '@/lib/activity';
 
 export async function GET(request, { params }) {
   const auth = await requireUser();
@@ -18,8 +19,12 @@ export async function PUT(request, { params }) {
 
   const { id } = await params;
   const body = await request.json().catch(() => ({}));
+  const before = await getProduct(auth.supabase, id);
   const result = await updateProduct(auth.supabase, id, body);
-  if (result.status === 200) await onProductChanged(auth.supabase, result.body.id);
+  if (result.status === 200) {
+    await onProductChanged(auth.supabase, result.body.id);
+    await recordActivity(auth, result.body.id, 'edited', describeChanges(before.body, result.body));
+  }
   return NextResponse.json(result.body, { status: result.status });
 }
 

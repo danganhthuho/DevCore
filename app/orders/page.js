@@ -110,7 +110,7 @@ export default function OrdersPage() {
     const body = await res.json().catch(() => ({}));
     setBusy(null);
     if (!res.ok) return toast(body.error || 'Mock supplier update failed.', 'error');
-    toast(`Order #${order.id} delivered.`);
+    toast(`Order #${order.id} delivered. ${order.quantity} added to stock.`);
     load();
   }
 

@@ -48,7 +48,7 @@ NEXT_PUBLIC_EXPIRATION_WARNING_DAYS=7          # days before expiry that count a
 ### 4. Set up the database (first time only)
 
 1. In Supabase, open **SQL Editor**, paste the contents of [`supabase/schema.sql`](supabase/schema.sql), and run it.
-   - **Database created before Nov 20, 2026?** Run the files in [`supabase/migrations/`](supabase/migrations/) instead, oldest first: `20261120_requirements_gaps.sql` (Owner role, waste tracking, TC-011 purchase-order statuses), then `20261121_display_name.sql` (nicknames).
+   - **Database created before Nov 20, 2026?** Run the files in [`supabase/migrations/`](supabase/migrations/) instead, oldest first: `20261120_requirements_gaps.sql` (Owner role, waste tracking, TC-011 purchase-order statuses), then `20261121_display_name.sql` (nicknames), then `20261122_product_activity.sql` (product history).
 2. *(Optional, for QA)* Run [`supabase/seed.sql`](supabase/seed.sql) once: 5 suppliers, 120 products with edge cases (out of stock, at minimum, expired, expiring soon) and 90 days of sales history.
 3. Under **Authentication → Users**, add a user with an email and password, and tick **Auto Confirm User**. A `profiles` row with the role `Staff` is created automatically.
 4. Make the first Owner in the SQL Editor. After that, the Owner sets everyone else's role on the **Team** page:
@@ -75,14 +75,18 @@ Roles go Staff → Manager → Owner; each role can do everything the one before
 | Set a nickname shown instead of your email (Account page) | Staff |
 | Optional two-step verification with an authenticator app (Account page) | Staff |
 | Dashboard: stock, low-stock, expiring and open-order counts, alerts feed | Staff |
-| Search inventory by name, category, status, supplier and expiration date | Staff |
-| Add / edit products, update quantity, scan barcodes | Staff |
+| Search inventory by name, category, status, supplier and expiration date (remembered between visits) | Staff |
+| Add / edit products, scan barcodes, + / − stock buttons on the Inventory list | Staff |
+| **⌘K / Ctrl+K** quick search for products, barcodes, pages and actions | Staff |
+| USB / Bluetooth barcode scanners work on any page (scan → product opens, or "add new") | Staff |
+| Import products from CSV with a preview (matching barcodes update existing products) | Staff |
+| Per-product sales chart (13 weeks + forecast) and history (who changed what) | Staff |
 | Record sales (feeds forecasting) and waste (expired / damaged items) | Staff |
-| Alerts: low stock, expiring, expired, reorder, order status | Staff |
+| Alerts: low stock, expiring, expired, reorder, order status; unread count in the sidebar; mark all as read | Staff |
 | Demand forecasts and reorder recommendations | Staff |
-| Request a purchase order (starts as *Pending Approval*) | Staff |
-| Approve (→ *Submitted*) or cancel purchase orders; mock supplier delivery | Manager |
-| Delete products; manage suppliers | Manager |
+| Request a purchase order (starts as *Pending Approval*), or all recommended ones at once | Staff |
+| Approve (→ *Submitted*) or cancel purchase orders; mock supplier delivery (adds the units to stock) | Manager |
+| Delete products (with a few seconds to undo); manage suppliers | Manager |
 | Inventory report with waste summary, CSV export | Manager |
 | Change team members' roles (Team page) | Owner |
 
@@ -142,20 +146,25 @@ All endpoints require a logged-in session. Expired or missing sessions return `4
 | GET | `/api/products/:id` | Get one product |
 | PUT | `/api/products/:id` | Update a product |
 | DELETE | `/api/products/:id` | Delete a product (Manager only) |
-| PATCH | `/api/products/:id/quantity` | Update stock quantity |
+| PATCH | `/api/products/:id/quantity` | Set stock `{ quantity }` or add/remove `{ change: 1 }` |
 | GET | `/api/products/barcode/:code` | Look up a product by barcode |
-| POST | `/api/products/:id/sales` | Record a sale `{ quantity, sale_date? }` |
+| GET, POST | `/api/products/:id/sales` | Daily sales for the last 90 days / record a sale `{ quantity, sale_date? }` |
+| GET | `/api/products/:id/activity` | Product history, newest first |
+| GET, POST | `/api/products/import` | CSV template / import `{ records, dryRun }` (preview when `dryRun` is true) |
 | POST | `/api/products/:id/waste` | Record waste `{ quantity, reason, note? }` |
 | GET | `/api/reports/inventory?format=csv` | Inventory report with 30-day waste summary, as JSON or CSV (Manager) |
 | GET, POST | `/api/suppliers` | List suppliers / add one (Manager) |
 | PUT, DELETE | `/api/suppliers/:id` | Edit / delete a supplier (Manager) |
 | GET | `/api/alerts?unread=&type=&product_id=` | List alerts (also refreshes expiration and reorder alerts) |
+| GET | `/api/alerts/count` | `{ unread }` for the sidebar badge |
+| POST | `/api/alerts/read-all` | Mark every alert as read |
 | PATCH | `/api/alerts/:id` or `/api/alerts/:id/read` | Mark an alert read |
 | GET, POST | `/api/forecasts/:productId` | Latest forecast, or generate a new one |
 | GET | `/api/reorder` or `/api/reorder/recommendations` | Reorder recommendations (`?all=true` for every product) |
 | GET, POST | `/api/purchase-orders` | List orders / request one (starts as Pending Approval) |
+| POST | `/api/purchase-orders/bulk` | Request several orders `{ items: [...] }` |
 | PATCH | `/api/purchase-orders/:id` or `/:id/status` | Approve (`Submitted`) or cancel with `{ status }` (Manager) |
-| POST | `/api/purchase-orders/:id/supplier` | Mock supplier: Submitted → Delivered (Manager) |
+| POST | `/api/purchase-orders/:id/supplier` | Mock supplier: Submitted → Delivered, adds the units to stock (Manager) |
 | GET | `/api/users` | Team members and roles (Owner) |
 | PATCH | `/api/users/:id` | Change a role with `{ role }` (Owner) |
 

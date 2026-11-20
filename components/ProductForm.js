@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import BarcodeScanner from '@/components/BarcodeScanner';
 import { useToast } from '@/components/Feedback';
 import StockActions from '@/components/StockActions';
+import ProductInsights from '@/components/ProductInsights';
 import { ScanIcon } from '@/components/Icons';
 import { CATEGORIES } from '@/lib/products/constants';
 import { validateProduct } from '@/lib/products/validate';
@@ -24,6 +25,7 @@ export default function ProductForm({ productId, initial = {} }) {
   const [saving, setSaving] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [suppliers, setSuppliers] = useState([]);
+  const [refreshKey, setRefreshKey] = useState(0); // reloads chart/history after stock changes
 
   useEffect(() => {
     fetch('/api/suppliers').then((r) => r.ok && r.json()).then((list) => list && setSuppliers(list));
@@ -146,8 +148,14 @@ export default function ProductForm({ productId, initial = {} }) {
       </form>
 
       {productId && (
-        <StockActions productId={productId}
-          onStockChange={(quantity) => setForm((f) => ({ ...f, quantity: String(quantity) }))} />
+        <>
+          <StockActions productId={productId}
+            onStockChange={(quantity) => {
+              setForm((f) => ({ ...f, quantity: String(quantity) }));
+              setRefreshKey((k) => k + 1);
+            }} />
+          <ProductInsights productId={productId} refreshKey={refreshKey} />
+        </>
       )}
     </main>
   );
