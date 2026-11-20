@@ -1,21 +1,22 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth/session';
-import { createPurchaseOrder, listPurchaseOrders } from '@/lib/orders/service';
+import { deleteSupplier, updateSupplier } from '@/lib/suppliers/service';
 
-// Current SFDS/database rule: purchase orders are Manager-only.
-export async function GET() {
+export async function PUT(request, { params }) {
   const auth = await requireRole('Manager');
   if (auth.response) return auth.response;
 
-  const result = await listPurchaseOrders(auth.supabase);
+  const { id } = await params;
+  const body = await request.json().catch(() => ({}));
+  const result = await updateSupplier(auth.supabase, id, body);
   return NextResponse.json(result.body, { status: result.status });
 }
 
-export async function POST(request) {
+export async function DELETE(request, { params }) {
   const auth = await requireRole('Manager');
   if (auth.response) return auth.response;
 
-  const body = await request.json().catch(() => ({}));
-  const result = await createPurchaseOrder(auth.supabase, auth.user.id, body);
+  const { id } = await params;
+  const result = await deleteSupplier(auth.supabase, id);
   return NextResponse.json(result.body, { status: result.status });
 }

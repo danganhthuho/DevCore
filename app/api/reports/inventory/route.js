@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { requireRole } from '@/lib/auth/session';
-import { buildInventoryReport, toCsv } from '@/lib/reports/inventory';
+import { buildInventoryReport, buildWasteSummary, toCsv } from '@/lib/reports/inventory';
 
-// GET /api/reports/inventory          -> JSON summary
+const WASTE_DAYS = 30;
+
+// GET /api/reports/inventory          -> JSON summary (stock + last 30 days of waste)
 // GET /api/reports/inventory?format=csv -> CSV download
 export async function GET(request) {
   const auth = await requireRole('Manager');
@@ -22,5 +24,13 @@ export async function GET(request) {
       },
     });
   }
-  return NextResponse.json(report);
+
+  const since = new Date(Date.now() - WASTE_DAYS * 86400000).toISOString();
+  const { data: waste, error: wasteError } = await auth.supabase
+    .from('waste_records')
+    .select('product_id, quantity, reason, recorded_at, products(name, price)')
+    .gte('recorded_at', since);
+  if (wasteError) return NextResponse.json({ error: 'Database error. Please try again.' }, { status: 500 });
+
+  return NextResponse.json({ ...report, waste: buildWasteSummary(waste ?? [], WASTE_DAYS) });
 }

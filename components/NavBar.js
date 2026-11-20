@@ -3,27 +3,33 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import {
+  BellIcon, BoxIcon, ChartIcon, DashboardIcon, FactoryIcon, LogoIcon, LogoutIcon,
+  ShieldIcon, TruckIcon, UsersIcon,
+} from '@/components/Icons';
+import { hasRole } from '@/lib/auth/roles';
 
-// Links shown to everyone, then Manager-only pages (reports and purchase
-// orders are Manager-only in the API).
+// [href, label, icon, lowest role that sees it]. The API checks roles too.
 const LINKS = [
-  ['/inventory', 'Inventory', null],
-  ['/alerts', 'Alerts & Reorder', null],
-  ['/orders', 'Orders', 'Manager'],
-  ['/reports', 'Reports', 'Manager'],
+  ['/dashboard', 'Dashboard', DashboardIcon, 'Staff'],
+  ['/inventory', 'Inventory', BoxIcon, 'Staff'],
+  ['/alerts', 'Alerts & Reorder', BellIcon, 'Staff'],
+  ['/orders', 'Orders', TruckIcon, 'Staff'],
+  ['/suppliers', 'Suppliers', FactoryIcon, 'Manager'],
+  ['/reports', 'Reports', ChartIcon, 'Manager'],
+  ['/team', 'Team', UsersIcon, 'Owner'],
+  ['/account', 'Account', ShieldIcon, 'Staff'],
 ];
 
+// Sidebar on desktop, a top bar on phones (see .sidebar in globals.css).
 export default function NavBar() {
   const pathname = usePathname();
   const router = useRouter();
   const [me, setMe] = useState(null);
 
   useEffect(() => {
-    if (pathname === '/login') return;
     fetch('/api/auth/me').then((r) => r.ok && r.json()).then((data) => setMe(data || null));
-  }, [pathname]);
-
-  if (pathname === '/login') return null;
+  }, []);
 
   async function handleLogout() {
     await fetch('/api/auth/logout', { method: 'POST' });
@@ -31,16 +37,34 @@ export default function NavBar() {
     router.push('/login');
   }
 
+  const isActive = (href) => pathname === href || pathname.startsWith(`${href}/`)
+    || (href === '/inventory' && pathname.startsWith('/products'));
+
   return (
-    <nav className="navbar">
-      <span className="brand">AI Inventory Tracker</span>
-      {LINKS.filter(([, , role]) => !role || me?.role === role).map(([href, label]) => (
-        <Link key={href} href={href} className={pathname.startsWith(href) ? 'active' : ''}>
-          {label}
+    <nav className="sidebar" aria-label="Main">
+      <Link href="/dashboard" className="brand">
+        <span className="brand-mark"><LogoIcon size={20} /></span>
+        <span className="brand-name">Inventory Tracker<small>DevCore</small></span>
+      </Link>
+
+      {LINKS.filter(([, , , role]) => role === 'Staff' || hasRole(me?.role, role)).map(([href, label, Icon]) => (
+        <Link key={href} href={href} className={`nav-link${isActive(href) ? ' active' : ''}`}
+          aria-current={isActive(href) ? 'page' : undefined} title={label}>
+          <Icon /><span>{label}</span>
         </Link>
       ))}
-      {me && <span className="user">{me.username} ({me.role})</span>}
-      <button className="secondary" onClick={handleLogout}>Log out</button>
+
+      <div className="sidebar-footer">
+        {me && (
+          <div className="user-chip">
+            <span className="avatar">{me.username.slice(0, 2)}</span>
+            <span className="who"><strong>{me.username}</strong><span>{me.role}</span></span>
+          </div>
+        )}
+        <button type="button" className="secondary small" onClick={handleLogout}>
+          <LogoutIcon size={16} /> Log out
+        </button>
+      </div>
     </nav>
   );
 }

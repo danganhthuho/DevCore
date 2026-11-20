@@ -3,22 +3,31 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import BarcodeScanner from '@/components/BarcodeScanner';
+import { useToast } from '@/components/Feedback';
+import StockActions from '@/components/StockActions';
+import { ScanIcon } from '@/components/Icons';
 import { CATEGORIES } from '@/lib/products/constants';
 import { validateProduct } from '@/lib/products/validate';
 
 const EMPTY = {
   name: '', category: '', quantity: '0', minimum_quantity: '0', price: '',
-  expiration_date: '', barcode: '', location: '',
+  expiration_date: '', barcode: '', location: '', supplier_id: '',
 };
 
 // Add / Edit Product screen (SFDS 6.1.3). Pass productId to edit.
 export default function ProductForm({ productId, initial = {} }) {
   const router = useRouter();
+  const toast = useToast();
   const [form, setForm] = useState({ ...EMPTY, ...initial });
   const [errors, setErrors] = useState({});
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
   const [scanning, setScanning] = useState(false);
+  const [suppliers, setSuppliers] = useState([]);
+
+  useEffect(() => {
+    fetch('/api/suppliers').then((r) => r.ok && r.json()).then((list) => list && setSuppliers(list));
+  }, []);
 
   useEffect(() => {
     if (!productId) return;
@@ -59,7 +68,7 @@ export default function ProductForm({ productId, initial = {} }) {
 
     const body = await res.json().catch(() => ({}));
     if (res.ok) {
-      alert(productId ? 'Product updated.' : 'Product added.');
+      toast(productId ? `${body.name} updated.` : `${body.name} added.`);
       router.push('/inventory');
     } else {
       setErrors(body.errors || {});
@@ -80,7 +89,12 @@ export default function ProductForm({ productId, initial = {} }) {
 
   return (
     <main>
-      <h1>{productId ? 'Edit Product' : 'Add Product'}</h1>
+      <div className="page-header">
+        <div>
+          <h1>{productId ? 'Edit product' : 'Add product'}</h1>
+          <p>Fields marked * are required.</p>
+        </div>
+      </div>
 
       <form className="card" onSubmit={handleSubmit} noValidate>
         <div className="form-grid">
@@ -101,11 +115,20 @@ export default function ProductForm({ productId, initial = {} }) {
 
           <div>
             {field('barcode', 'Barcode', { placeholder: 'scan or type' })}
-            <button type="button" className="secondary" style={{ marginTop: 8 }}
-              onClick={() => setScanning(true)}>Scan</button>
+            <button type="button" className="secondary small" style={{ marginTop: 8 }}
+              onClick={() => setScanning(true)}><ScanIcon size={15} /> Scan barcode</button>
           </div>
 
           {field('location', 'Location', { placeholder: 'Aisle 3, Shelf B' })}
+
+          <div>
+            <label htmlFor="supplier_id">Supplier</label>
+            <select id="supplier_id" value={form.supplier_id} onChange={update('supplier_id')}>
+              <option value="">—</option>
+              {suppliers.map((s) => <option key={s.id} value={String(s.id)}>{s.name}</option>)}
+            </select>
+            {errors.supplier_id && <p className="error">{errors.supplier_id}</p>}
+          </div>
         </div>
 
         {scanning && (
@@ -116,11 +139,16 @@ export default function ProductForm({ productId, initial = {} }) {
 
         {message && <p className="error" role="alert">{message}</p>}
 
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
-          <button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+        <div className="form-actions">
           <button type="button" className="secondary" onClick={() => router.push('/inventory')}>Cancel</button>
+          <button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save product'}</button>
         </div>
       </form>
+
+      {productId && (
+        <StockActions productId={productId}
+          onStockChange={(quantity) => setForm((f) => ({ ...f, quantity: String(quantity) }))} />
+      )}
     </main>
   );
 }

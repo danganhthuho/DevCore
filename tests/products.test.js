@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { createProduct, updateQuantity, deleteProduct } from '@/lib/products/service';
+import {
+  createProduct, getProduct, updateProduct, updateQuantity, deleteProduct,
+} from '@/lib/products/service';
 import { validateProduct } from '@/lib/products/validate';
 import { stockStatus } from '@/lib/inventory/status';
 import { fakeSupabase } from './helpers/fakeSupabase';
@@ -79,9 +81,42 @@ describe('Product', () => {
 
     expect(result.status).toBe(409);
   });
+
+  it('returns 404 for an id that is not a number, without querying', async () => {
+    const { client, calls } = fakeSupabase();
+
+    expect((await getProduct(client, 'abc')).status).toBe(404);
+    expect((await updateProduct(client, 'abc', milk)).status).toBe(404);
+    expect((await updateQuantity(client, 'abc', '5')).status).toBe(404);
+    expect((await deleteProduct(client, 'abc')).status).toBe(404);
+    expect(calls).toHaveLength(0);
+  });
+
+  it('reports an unknown supplier on the supplier field', async () => {
+    const { client } = fakeSupabase({ result: { data: null, error: { code: '23503' } } });
+
+    const result = await createProduct(client, { ...milk, supplier_id: '999' });
+
+    expect(result.status).toBe(400);
+    expect(result.body.errors.supplier_id).toBeDefined();
+  });
 });
 
 describe('Product validation', () => {
+  it('rejects a date that does not exist', () => {
+    expect(validateProduct({ ...milk, expiration_date: '2026-02-31' }).errors.expiration_date).toBeDefined();
+    expect(validateProduct({ ...milk, expiration_date: '2028-02-29' }).value.expiration_date).toBe('2028-02-29');
+  });
+
+  it('rejects a quantity too large to store', () => {
+    expect(validateProduct({ ...milk, quantity: '99999999999' }).errors.quantity).toBeDefined();
+    expect(validateProduct({ ...milk, quantity: '1000000' }).value.quantity).toBe(1000000);
+  });
+
+  it('keeps the supplier when the form sends one', () => {
+    expect(validateProduct({ ...milk, supplier_id: '2' }).value.supplier_id).toBe(2);
+  });
+
   it('rejects a price with more than 2 decimals', () => {
     expect(validateProduct({ ...milk, price: '3.499' }).errors.price).toBeDefined();
   });

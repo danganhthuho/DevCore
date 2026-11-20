@@ -37,6 +37,10 @@ cp .env.local.example .env.local
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+
+# Optional
+NEXT_PUBLIC_TIME_ZONE=America/Los_Angeles      # the store's time zone, for expiration dates
+NEXT_PUBLIC_EXPIRATION_WARNING_DAYS=7          # days before expiry that count as "Almost Expired"
 ```
 
 `.env.local` is git-ignored. Never commit it.
@@ -44,11 +48,14 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 ### 4. Set up the database (first time only)
 
 1. In Supabase, open **SQL Editor**, paste the contents of [`supabase/schema.sql`](supabase/schema.sql), and run it.
-2. Under **Authentication → Users**, add a user with an email and password. A `profiles` row with the role `Staff` is created automatically.
-3. To make a user a Manager, run this in the SQL Editor:
+   - **Database created before Nov 20, 2026?** Run [`supabase/migrations/20261120_requirements_gaps.sql`](supabase/migrations/20261120_requirements_gaps.sql) instead. It adds the Owner role, waste tracking and the TC-011 purchase-order statuses.
+2. *(Optional, for QA)* Run [`supabase/seed.sql`](supabase/seed.sql) once: 5 suppliers, 120 products with edge cases (out of stock, at minimum, expired, expiring soon) and 90 days of sales history.
+3. Under **Authentication → Users**, add a user with an email and password, and tick **Auto Confirm User**. A `profiles` row with the role `Staff` is created automatically.
+4. Make the first Owner in the SQL Editor. After that, the Owner sets everyone else's role on the **Team** page:
    ```sql
-   update public.profiles set role = 'Manager' where username = 'manager@example.com';
+   update public.profiles set role = 'Owner' where username = 'owner@example.com';
    ```
+5. Two-step verification uses Supabase's TOTP MFA, which is on by default. Check **Authentication → Multi-Factor** if setup fails.
 
 ### 5. Run
 
@@ -60,42 +67,61 @@ npm run build   # production build
 
 ## Features
 
-| Feature | Who can use it |
+Roles go Staff → Manager → Owner; each role can do everything the one before it can.
+
+| Feature | Lowest role |
 | --- | --- |
-| Log in / log out (email + password) | Everyone |
-| Automatic logout after 30 minutes of inactivity | Everyone |
-| View and search inventory, filtered by category and status | Staff, Manager |
-| Add / edit products, update quantity | Staff, Manager |
-| Barcode lookup by camera or manual entry (unknown barcode → "add new product" with the barcode filled in) | Staff, Manager |
-| Delete products | Manager |
-| Inventory report and CSV export | Manager |
+| Log in / log out, automatic logout after 30 minutes of inactivity | Staff |
+| Optional two-step verification with an authenticator app (Account page) | Staff |
+| Dashboard: stock, low-stock, expiring and open-order counts, alerts feed | Staff |
+| Search inventory by name, category, status, supplier and expiration date | Staff |
+| Add / edit products, update quantity, scan barcodes | Staff |
+| Record sales (feeds forecasting) and waste (expired / damaged items) | Staff |
+| Alerts: low stock, expiring, expired, reorder, order status | Staff |
+| Demand forecasts and reorder recommendations | Staff |
+| Request a purchase order (starts as *Pending Approval*) | Staff |
+| Approve (→ *Submitted*) or cancel purchase orders; mock supplier delivery | Manager |
+| Delete products; manage suppliers | Manager |
+| Inventory report with waste summary, CSV export | Manager |
+| Change team members' roles (Team page) | Owner |
 
 Roles are enforced twice: in the API routes (`requireRole`) and in the database through Supabase row-level security policies.
+
+Important events (logins, product and stock changes, order status, role changes, database errors) are logged as JSON lines to the server console; on Vercel see **Project → Logs**.
 
 ## Project structure
 
 ```
 app/
-  api/
-    auth/            login, logout, me
-    products/        CRUD, quantity update, barcode lookup
-    reports/         inventory report (JSON or CSV)
-  login/             Login page
-  inventory/         Inventory list page
-  products/          Add / Edit product pages
-  reports/           Reports page
-components/          BarcodeScanner, ProductForm
+  api/                 REST endpoints (see API below)
+  dashboard/           Home screen
+  inventory/           Inventory list with search and filters
+  products/            Add / Edit product (+ record sale / waste)
+  alerts/              Alerts, forecasts and reorder suggestions
+  orders/              Purchase orders
+  suppliers/           Supplier management (Manager)
+  reports/             Inventory and waste report (Manager)
+  team/                Roles (Owner)
+  account/             Two-step verification
+  login/               Sign in (+ MFA code step)
+components/            AppShell, NavBar, Feedback (toasts/dialogs), ProductForm, StockActions, BarcodeScanner, Icons
 lib/
-  auth/              login logic, session + role checks
-  products/          validation, database service, categories
-  inventory/         stock status (In stock / Low stock / Expired)
-  reports/           report builder and CSV export
-  supabase/          server-side Supabase client
-  events.js          onProductChanged hook (used for alerts/forecasting)
-middleware.js        session refresh, inactivity timeout, login redirect
-supabase/schema.sql  tables, triggers, and RLS policies
-tests/               unit tests (UT-01 – UT-07)
-ProjectDocumentation/
+  auth/                login, session + role checks, roles, MFA
+  products/            validation, product service, sales/waste (stock.js)
+  inventory/           stock status badge
+  alerts/              alert rules and syncing
+  forecast/, reorder/  demand forecast and reorder quantity
+  orders/              purchase-order flow
+  suppliers/, users/   supplier and team services
+  reports/             report builder, waste summary, CSV export
+  log.js               event logging
+  events.js            onProductChanged hook (keeps alerts in sync)
+middleware.js          session refresh, inactivity timeout, MFA gate, login redirect
+supabase/
+  schema.sql           tables, triggers and RLS policies
+  migrations/          changes for existing databases
+  seed.sql             QA test data
+tests/                 unit tests (UT-01 – UT-13 and more)
 ```
 
 ## API
@@ -107,16 +133,42 @@ All endpoints require a logged-in session. Expired or missing sessions return `4
 | POST | `/api/auth/login` | Log in with `{ email, password }` |
 | POST | `/api/auth/logout` | Log out |
 | GET | `/api/auth/me` | Current user and role |
-| GET | `/api/products?search=&category=&status=` | List and search products |
+| GET, DELETE | `/api/auth/mfa` | MFA status / turn MFA off with `{ factorId }` |
+| POST | `/api/auth/mfa/enroll` | Start MFA setup (returns a QR code) |
+| POST | `/api/auth/mfa/verify` | Check a 6-digit code `{ factorId, code }` |
+| GET | `/api/products?search=&category=&status=&supplier=&expires_by=` | List and search products |
 | POST | `/api/products` | Create a product |
 | GET | `/api/products/:id` | Get one product |
 | PUT | `/api/products/:id` | Update a product |
 | DELETE | `/api/products/:id` | Delete a product (Manager only) |
 | PATCH | `/api/products/:id/quantity` | Update stock quantity |
 | GET | `/api/products/barcode/:code` | Look up a product by barcode |
-| GET | `/api/reports/inventory?format=csv` | Inventory report, as JSON or CSV (Manager only) |
+| POST | `/api/products/:id/sales` | Record a sale `{ quantity, sale_date? }` |
+| POST | `/api/products/:id/waste` | Record waste `{ quantity, reason, note? }` |
+| GET | `/api/reports/inventory?format=csv` | Inventory report with 30-day waste summary, as JSON or CSV (Manager) |
+| GET, POST | `/api/suppliers` | List suppliers / add one (Manager) |
+| PUT, DELETE | `/api/suppliers/:id` | Edit / delete a supplier (Manager) |
+| GET | `/api/alerts?unread=&type=&product_id=` | List alerts (also refreshes expiration and reorder alerts) |
+| PATCH | `/api/alerts/:id` or `/api/alerts/:id/read` | Mark an alert read |
+| GET, POST | `/api/forecasts/:productId` | Latest forecast, or generate a new one |
+| GET | `/api/reorder` or `/api/reorder/recommendations` | Reorder recommendations (`?all=true` for every product) |
+| GET, POST | `/api/purchase-orders` | List orders / request one (starts as Pending Approval) |
+| PATCH | `/api/purchase-orders/:id` or `/:id/status` | Approve (`Submitted`) or cancel with `{ status }` (Manager) |
+| POST | `/api/purchase-orders/:id/supplier` | Mock supplier: Submitted → Delivered (Manager) |
+| GET | `/api/users` | Team members and roles (Owner) |
+| PATCH | `/api/users/:id` | Change a role with `{ role }` (Owner) |
 
 Validation errors return `400`. A duplicate barcode, or deleting a product that has purchase orders, returns `409`.
+
+## Deploying to Vercel
+
+`.env.local` is not in git, so Vercel needs the same values:
+
+1. **Vercel → Project → Settings → Environment Variables:** add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` (and `NEXT_PUBLIC_TIME_ZONE` if the store isn't on Pacific time) for Production, Preview and Development.
+2. **Redeploy:** Deployments → ⋯ → Redeploy. `NEXT_PUBLIC_` values are built into the app, so old deployments don't pick them up.
+3. **Supabase → Authentication → URL Configuration:** set Site URL to the Vercel domain.
+
+Without the Supabase variables every page fails with `500: MIDDLEWARE_INVOCATION_FAILED`.
 
 ## Testing
 

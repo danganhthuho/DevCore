@@ -12,6 +12,8 @@ export async function GET(request) {
     search: params.get('search'),
     category: params.get('category'),
     status: params.get('status'),
+    supplier: params.get('supplier'),
+    expiresBy: params.get('expires_by'),
   });
   return NextResponse.json(result.body, { status: result.status });
 }
