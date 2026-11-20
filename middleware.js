@@ -78,7 +78,7 @@ export async function middleware(request) {
 // changes (such as a sign-out) that Supabase made on `response`.
 // reason: 'login' (no session), 'expired' (idle timeout) or 'mfa' (code needed).
 function deny(request, response, reason) {
-  let denied;
+  let denied; 
   if (request.nextUrl.pathname.startsWith('/api/')) {
     denied = NextResponse.json({ error: DENY_MESSAGES[reason] }, { status: 401 });
   } else {

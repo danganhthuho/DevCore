@@ -109,3 +109,29 @@ describe('Product history', () => {
     expect(describeChanges(before, before)).toBe('Saved with no changes');
   });
 });
+
+describe('Dashboard: days of stock left', () => {
+  it('groups products by how long their stock lasts at the 30-day sales pace', async () => {
+    const { buildRunway } = await import('@/lib/dashboard/insights');
+    const products = [
+      { id: 1, name: 'Milk', quantity: 4 },     // sells 2/day -> 2 days
+      { id: 2, name: 'Bread', quantity: 15 },   // 3/day -> 5 days
+      { id: 3, name: 'Rice', quantity: 100 },   // 1/day -> 100 days
+      { id: 4, name: 'Salt', quantity: 50 },    // no sales -> can't estimate
+      { id: 5, name: 'Eggs', quantity: 0 },     // 1/day, none left -> 0 days
+    ];
+    const sales = [
+      { product_id: 1, quantity_sold: 60 },
+      { product_id: 2, quantity_sold: 90 },
+      { product_id: 3, quantity_sold: 30 },
+      { product_id: 5, quantity_sold: 30 },
+    ];
+
+    const r = buildRunway(products, sales, 30);
+
+    expect(r.groups.map((g) => g.count)).toEqual([2, 1, 0, 1]);
+    expect(r.runningOutThisWeek).toBe(3);
+    expect(r.noSales).toBe(1);
+    expect(r.soonest.map((p) => [p.name, p.daysLeft])).toEqual([['Eggs', 0], ['Milk', 2], ['Bread', 5]]);
+  });
+});

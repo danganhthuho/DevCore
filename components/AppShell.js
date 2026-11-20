@@ -7,12 +7,39 @@ import CommandPalette from '@/components/CommandPalette';
 import ScannerListener from '@/components/ScannerListener';
 import { FeedbackProvider } from '@/components/Feedback';
 
+const COLLAPSE_KEY = 'sidebar-collapsed';
+
 // Sidebar layout for every page except the login screen, plus the ⌘K
-// search and the USB barcode scanner listener.
+// search and the USB barcode scanner listener. The sidebar can shrink to an
+// icon rail (button at its top, or ⌘\ / Ctrl+\); the choice is remembered
+// in this browser.
 export default function AppShell({ children }) {
   const pathname = usePathname();
   const isLogin = pathname === '/login';
   const [role, setRole] = useState(null);
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    try { setCollapsed(localStorage.getItem(COLLAPSE_KEY) === '1'); } catch { /* not remembered */ }
+  }, []);
+
+  function toggleSidebar() {
+    setCollapsed((c) => {
+      try { localStorage.setItem(COLLAPSE_KEY, c ? '0' : '1'); } catch { /* not remembered */ }
+      return !c;
+    });
+  }
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === '\\') {
+        e.preventDefault();
+        toggleSidebar();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   useEffect(() => {
     if (isLogin) return;
@@ -22,8 +49,8 @@ export default function AppShell({ children }) {
   return (
     <FeedbackProvider>
       {isLogin ? children : (
-        <div className="app-shell">
-          <NavBar />
+        <div className={`app-shell${collapsed ? ' collapsed' : ''}`}>
+          <NavBar collapsed={collapsed} onToggle={toggleSidebar} />
           <div className="app-main">{children}</div>
           <CommandPalette role={role} />
           <ScannerListener />

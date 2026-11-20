@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { PlusIcon, ScanIcon } from '@/components/Icons';
-import { EXPIRATION_WARNING_DAYS } from '@/lib/alerts/logic';
+import { ExpiryStrip, RunwayChart, StockBar } from '@/components/MiniCharts';
+import { localIsoDate } from '@/lib/alerts/logic';
 import { OPEN_ORDER_STATUSES } from '@/lib/orders/logic';
 
 function greeting() {
@@ -32,15 +33,17 @@ export default function DashboardPage() {
   const [products, setProducts] = useState(null);
   const [alerts, setAlerts] = useState([]);
   const [orders, setOrders] = useState(null);
+  const [runway, setRunway] = useState(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
     async function load() {
-      const [meRes, productsRes, alertsRes, ordersRes] = await Promise.all([
+      const [meRes, productsRes, alertsRes, ordersRes, runwayRes] = await Promise.all([
         fetch('/api/auth/me'),
         fetch('/api/products'),
         fetch('/api/alerts?unread=true'),
         fetch('/api/purchase-orders'),
+        fetch('/api/dashboard/runway'),
       ]);
       if ([meRes, productsRes, alertsRes].some((r) => r.status === 401)) return router.push('/login');
       if (!productsRes.ok) return setError('Could not load inventory.');
@@ -50,12 +53,16 @@ export default function DashboardPage() {
       setProducts(await productsRes.json());
       if (alertsRes.ok) setAlerts(await alertsRes.json());
       if (ordersRes.ok) setOrders(await ordersRes.json());
+      if (runwayRes.ok) setRunway(await runwayRes.json());
     }
     load();
   }, [router]);
 
-  const count = (status) => products?.filter((p) => p.status === status).length ?? '—';
-  const units = products?.reduce((sum, p) => sum + p.quantity, 0) ?? 0;
+  const today = localIsoDate();
+  const in14Days = new Date(`${today}T00:00:00Z`);
+  in14Days.setUTCDate(in14Days.getUTCDate() + 13);
+  const expiringSoon = products?.filter((p) => p.expiration_date
+    && p.expiration_date >= today && p.expiration_date <= in14Days.toISOString().slice(0, 10)).length;
   const openOrders = orders?.filter((o) => OPEN_ORDER_STATUSES.includes(o.status)) ?? [];
   const runningLow = (products ?? [])
     .filter((p) => p.status === 'Low stock')
@@ -64,7 +71,7 @@ export default function DashboardPage() {
   const name = me?.displayName;
 
   return (
-    <main>
+    <main className="dashboard">
       <div className="page-header">
         <div>
           <h1>{greeting()}{name ? `, ${name}` : ''}</h1>
@@ -79,22 +86,28 @@ export default function DashboardPage() {
       {error && <p className="error" role="alert">{error}</p>}
 
       <div className="stat-grid">
-        <Link href="/inventory" className="stat">
-          <span className="label">Products</span>
-          <span className="value">{products?.length ?? '—'}</span>
-          <span className="hint">{units.toLocaleString()} units in stock</span>
-        </Link>
-        <Link href={inventoryLink('Low stock')} className="stat tone-danger">
-          <span className="label">Low stock</span>
-          <span className="value">{count('Low stock')}</span>
-          <span className="hint">At or below minimum</span>
-        </Link>
-        <Link href={inventoryLink('Almost Expired')} className="stat tone-warn">
-          <span className="label">Expiring within {EXPIRATION_WARNING_DAYS} days</span>
-          <span className="value">{count('Almost Expired')}</span>
-          <span className="hint">{count('Expired')} already expired</span>
-        </Link>
-        <Link href="/orders" className="stat tone-info">
+        <div className="stat spark-tile">
+          <span className="label">Runs out this week</span>
+          <span className="value">{runway ? runway.runningOutThisWeek : '—'}<small> products</small></span>
+          <span className="hint">At the last 30 days&apos; sales pace</span>
+          <RunwayChart runway={runway} />
+        </div>
+        <div className="stat spark-tile">
+          <span className="label">Expiring, next 14 days</span>
+          <span className="value">{products ? expiringSoon : '—'}<small> products</small></span>
+          <span className="hint">Sell or move before they spoil</span>
+          <ExpiryStrip products={products} today={today} />
+        </div>
+        <div className="stat spark-tile">
+          <span className="label">Stock health</span>
+          <span className="value">
+            {products ? `${Math.round((products.filter((p) => p.status === 'In stock').length / Math.max(1, products.length)) * 100)}%` : '—'}
+            <small> in stock</small>
+          </span>
+          <span className="hint">{products ? `${products.length} products` : ''}</span>
+          <StockBar products={products} />
+        </div>
+        <Link href="/orders" className="stat spark-tile">
           <span className="label">Open purchase orders</span>
           <span className="value">{orders ? openOrders.length : '—'}</span>
           <span className="hint">{openOrders.filter((o) => o.status === 'Pending Approval').length} awaiting approval</span>
