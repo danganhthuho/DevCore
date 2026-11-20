@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
 const IDLE_LIMIT_MS = 30 * 60 * 1000; // log out after 30 minutes of inactivity
-const PUBLIC_PATHS = ['/login', '/api/auth/login'];
+const PUBLIC_PATHS = ['/login', '/api/auth/login', '/api/auth/forgot', '/api/auth/demo', '/auth/callback'];
 const MFA_PATHS = ['/login', '/api/auth/mfa', '/api/auth/logout'];
 
 const DENY_MESSAGES = {

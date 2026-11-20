@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useConfirm, useToast } from '@/components/Feedback';
 import { SkeletonLines } from '@/components/Skeleton';
+import PasswordInput from '@/components/auth/PasswordInput';
+import { MIN_PASSWORD } from '@/lib/auth/password';
 
 // Settings → Security: two-step verification with an authenticator app.
 export default function SecuritySection() {
@@ -71,6 +73,8 @@ export default function SecuritySection() {
   }
 
   return (
+    <>
+    <ChangePassword />
     <section className="section-card settings-section">
       <div className="panel-head">
         <h2>Two-step verification</h2>
@@ -117,5 +121,52 @@ export default function SecuritySection() {
         </div>
       )}
     </section>
+    </>
+  );
+}
+
+function ChangePassword() {
+  const toast = useToast();
+  const [password, setPassword] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  async function save(e) {
+    e.preventDefault();
+    setSaving(true);
+    setError('');
+    const res = await fetch('/api/auth/password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password, confirm }),
+    });
+    const body = await res.json().catch(() => ({}));
+    setSaving(false);
+    if (!res.ok) return setError(body.error || 'Could not change your password.');
+    setPassword('');
+    setConfirm('');
+    toast('Password changed.');
+  }
+
+  return (
+    <form className="section-card settings-section" onSubmit={save} noValidate>
+      <h2>Password</h2>
+      <p className="field-help">At least {MIN_PASSWORD} characters, with a letter and a number.</p>
+      {error && <p className="error" role="alert">{error}</p>}
+      <div className="form-grid">
+        <div>
+          <label htmlFor="change-password">New password</label>
+          <PasswordInput id="change-password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+        </div>
+        <div>
+          <label htmlFor="change-confirm">Confirm new password</label>
+          <PasswordInput id="change-confirm" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+        </div>
+      </div>
+      <div className="form-actions">
+        <button type="submit" disabled={!password || !confirm || saving}>{saving ? 'Saving…' : 'Change password'}</button>
+      </div>
+    </form>
   );
 }

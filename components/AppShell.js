@@ -16,7 +16,8 @@ const COLLAPSE_KEY = 'sidebar-collapsed';
 // in this browser.
 export default function AppShell({ children }) {
   const pathname = usePathname();
-  const isLogin = pathname === '/login';
+  // Sign-in style pages: no sidebar, search or settings.
+  const isLogin = pathname === '/login' || pathname === '/reset-password';
   const [role, setRole] = useState(null);
   const [collapsed, setCollapsed] = useState(false);
 

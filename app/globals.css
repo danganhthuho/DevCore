@@ -730,6 +730,46 @@ td .error { margin: 0; }
   .login-points, .login-brand footer { display: none; }
 }
 
+/* ---------- Sign-in dashboard preview ---------- */
+
+.login-brand { position: relative; overflow: hidden; }
+.login-preview {
+  margin-right: -48px; perspective: 1800px;
+  -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent);
+  mask-image: linear-gradient(to bottom, #000 55%, transparent);
+}
+.login-preview img {
+  display: block; width: 115%; max-width: none; height: auto; border-radius: 14px;
+  transform: rotateY(-12deg) rotateX(6deg); transform-origin: left center;
+  box-shadow: 0 30px 60px rgb(0 0 0 / 0.45), 0 0 0 1px rgb(255 255 255 / 0.08);
+}
+@media (max-width: 860px) { .login-preview { display: none; } }
+
+/* ---------- Sign-in helpers ---------- */
+
+.login-help { margin: 0; text-align: center; font-size: 13px; color: var(--muted); }
+.demo-signin { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.demo-signin span {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted);
+}
+.demo-signin button { flex: 1; height: 36px; font-size: 13px; }
+
+.password-field { position: relative; display: block; }
+.password-field input { padding-right: 44px; }
+.password-toggle {
+  position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+  width: 34px; height: 32px; padding: 0; background: none; color: var(--muted); border-radius: 6px;
+}
+.password-toggle:hover { background: var(--surface-2); color: var(--text); }
+.caps-warning { margin: 6px 0 0; font-size: 13px; font-weight: 600; color: var(--warn); }
+.label-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.label-row .link-button { font-size: 13px; }
+.checkbox { display: inline-flex; align-items: center; gap: 8px; font-weight: 500; font-size: 14px; cursor: pointer; margin: 0; }
+.checkbox input { width: 16px; height: 16px; accent-color: var(--accent); }
+.login-form-wrap .link-button { justify-self: center; }
+.login-form-wrap .label-row .link-button { justify-self: auto; }
+.login-form-wrap .notice { margin: 0; }
+
 /* ---------- Toasts and dialog ---------- */
 
 .toasts {
