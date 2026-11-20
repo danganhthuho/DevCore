@@ -6,6 +6,7 @@ create table public.profiles (
   id         uuid primary key references auth.users (id) on delete cascade,
   username   varchar(100) not null unique,
   role       varchar(10)  not null default 'Staff' check (role in ('Staff', 'Manager', 'Owner')),
+  display_name varchar(40),  -- nickname shown instead of the email (set_my_display_name)
   created_at timestamptz  not null default now()
 );
 
@@ -101,6 +102,20 @@ language sql stable security definer set search_path = public as $$
     select 1 from public.profiles where id = auth.uid() and role in ('Manager', 'Owner')
   );
 $$;
+
+-- Lets users change only their own nickname (they can't update their row,
+-- so they can't change their role).
+create function public.set_my_display_name(new_name text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  update public.profiles
+  set display_name = nullif(trim(new_name), '')
+  where id = auth.uid();
+end;
+$$;
+
+revoke all on function public.set_my_display_name(text) from public;
+grant execute on function public.set_my_display_name(text) to authenticated;
 
 create function public.is_owner() returns boolean
 language sql stable security definer set search_path = public as $$

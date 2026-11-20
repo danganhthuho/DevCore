@@ -21,14 +21,24 @@ const LINKS = [
   ['/account', 'Account', ShieldIcon, 'Staff'],
 ];
 
+// "Thomas Johnson" -> "TJ", "islandcity57" -> "IS"
+function initials(name) {
+  const words = name.trim().split(/\s+/);
+  return (words.length > 1 ? words[0][0] + words[1][0] : name.slice(0, 2)).toUpperCase();
+}
+
 // Sidebar on desktop, a top bar on phones (see .sidebar in globals.css).
 export default function NavBar() {
   const pathname = usePathname();
   const router = useRouter();
   const [me, setMe] = useState(null);
 
+  // Reload when the Account page changes the nickname.
   useEffect(() => {
-    fetch('/api/auth/me').then((r) => r.ok && r.json()).then((data) => setMe(data || null));
+    const load = () => fetch('/api/auth/me').then((r) => r.ok && r.json()).then((data) => setMe(data || null));
+    load();
+    window.addEventListener('profile-updated', load);
+    return () => window.removeEventListener('profile-updated', load);
   }, []);
 
   async function handleLogout() {
@@ -56,10 +66,10 @@ export default function NavBar() {
 
       <div className="sidebar-footer">
         {me && (
-          <div className="user-chip">
-            <span className="avatar">{me.username.slice(0, 2)}</span>
-            <span className="who"><strong>{me.username}</strong><span>{me.role}</span></span>
-          </div>
+          <Link href="/account" className="user-chip" title={me.username}>
+            <span className="avatar">{initials(me.displayName ?? me.username)}</span>
+            <span className="who"><strong>{me.displayName ?? me.username}</strong><span>{me.role}</span></span>
+          </Link>
         )}
         <button type="button" className="secondary small" onClick={handleLogout}>
           <LogoutIcon size={16} /> Log out

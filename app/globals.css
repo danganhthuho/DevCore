@@ -114,7 +114,11 @@ main { max-width: 1200px; margin: 0 auto; padding: 32px 40px 56px; }
 .nav-link svg { flex: none; }
 
 .sidebar-footer { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--border); display: grid; gap: 10px; }
-.user-chip { display: flex; align-items: center; gap: 10px; padding: 0 6px; min-width: 0; }
+.user-chip {
+  display: flex; align-items: center; gap: 10px; padding: 6px; min-width: 0;
+  border-radius: var(--radius-sm); color: var(--text); text-decoration: none;
+}
+a.user-chip:hover { background: var(--surface-2); }
 .avatar {
   flex: none; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%;
   background: var(--accent-soft); color: var(--accent); font-weight: 700; font-size: 13px; text-transform: uppercase;

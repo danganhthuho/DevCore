@@ -35,7 +35,7 @@ export default function TeamPage() {
 
   async function changeRole(user, role) {
     const ok = await confirm({
-      title: `Make ${user.username} ${role === 'Owner' ? 'an' : 'a'} ${role}?`,
+      title: `Make ${user.display_name || user.username} ${role === 'Owner' ? 'an' : 'a'} ${role}?`,
       message: ROLE_HELP[role] + '.',
       confirmLabel: 'Change role',
     });
@@ -71,7 +71,11 @@ export default function TeamPage() {
           <tbody>
             {users.map((u) => (
               <tr key={u.id}>
-                <td><strong>{u.username}</strong>{me?.username === u.username && <span className="muted"> (you)</span>}</td>
+                <td>
+                  <strong>{u.display_name || u.username.split('@')[0]}</strong>
+                  {me?.username === u.username && <span className="muted"> (you)</span>}
+                  <br /><span className="muted">{u.username}</span>
+                </td>
                 <td>
                   <select aria-label={`Role for ${u.username}`} value={u.role} style={{ width: 'auto' }}
                     disabled={me?.username === u.username}

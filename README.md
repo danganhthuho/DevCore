@@ -48,7 +48,7 @@ NEXT_PUBLIC_EXPIRATION_WARNING_DAYS=7          # days before expiry that count a
 ### 4. Set up the database (first time only)
 
 1. In Supabase, open **SQL Editor**, paste the contents of [`supabase/schema.sql`](supabase/schema.sql), and run it.
-   - **Database created before Nov 20, 2026?** Run [`supabase/migrations/20261120_requirements_gaps.sql`](supabase/migrations/20261120_requirements_gaps.sql) instead. It adds the Owner role, waste tracking and the TC-011 purchase-order statuses.
+   - **Database created before Nov 20, 2026?** Run the files in [`supabase/migrations/`](supabase/migrations/) instead, oldest first: `20261120_requirements_gaps.sql` (Owner role, waste tracking, TC-011 purchase-order statuses), then `20261121_display_name.sql` (nicknames).
 2. *(Optional, for QA)* Run [`supabase/seed.sql`](supabase/seed.sql) once: 5 suppliers, 120 products with edge cases (out of stock, at minimum, expired, expiring soon) and 90 days of sales history.
 3. Under **Authentication → Users**, add a user with an email and password, and tick **Auto Confirm User**. A `profiles` row with the role `Staff` is created automatically.
 4. Make the first Owner in the SQL Editor. After that, the Owner sets everyone else's role on the **Team** page:
@@ -72,6 +72,7 @@ Roles go Staff → Manager → Owner; each role can do everything the one before
 | Feature | Lowest role |
 | --- | --- |
 | Log in / log out, automatic logout after 30 minutes of inactivity | Staff |
+| Set a nickname shown instead of your email (Account page) | Staff |
 | Optional two-step verification with an authenticator app (Account page) | Staff |
 | Dashboard: stock, low-stock, expiring and open-order counts, alerts feed | Staff |
 | Search inventory by name, category, status, supplier and expiration date | Staff |
@@ -132,7 +133,7 @@ All endpoints require a logged-in session. Expired or missing sessions return `4
 | --- | --- | --- |
 | POST | `/api/auth/login` | Log in with `{ email, password }` |
 | POST | `/api/auth/logout` | Log out |
-| GET | `/api/auth/me` | Current user and role |
+| GET, PATCH | `/api/auth/me` | Current user, nickname and role / change nickname with `{ display_name }` |
 | GET, DELETE | `/api/auth/mfa` | MFA status / turn MFA off with `{ factorId }` |
 | POST | `/api/auth/mfa/enroll` | Start MFA setup (returns a QR code) |
 | POST | `/api/auth/mfa/verify` | Check a 6-digit code `{ factorId, code }` |

@@ -61,7 +61,7 @@ export default function DashboardPage() {
     .filter((p) => p.status === 'Low stock')
     .sort((a, b) => a.quantity / (a.minimum_quantity || 1) - b.quantity / (b.minimum_quantity || 1))
     .slice(0, 6);
-  const name = me?.username?.split('@')[0];
+  const name = me?.displayName;
 
   return (
     <main>
