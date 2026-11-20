@@ -61,24 +61,28 @@ export default function OrdersPage() {
     if (order.status === 'Pending') {
       return (
         <>
-          <button disabled={!!busy} onClick={() => changeStatus(order.id, 'Approved')}>Approve</button>
-          <button className="danger" disabled={!!busy} onClick={() => changeStatus(order.id, 'Cancelled')}>Cancel</button>
+          <button className="small" disabled={!!busy} onClick={() => changeStatus(order.id, 'Approved')}>Approve</button>
+          <button className="danger small" disabled={!!busy} onClick={() => changeStatus(order.id, 'Cancelled')}>Cancel</button>
         </>
       );
     }
     if (order.status === 'Approved') {
-      return <button disabled={!!busy} onClick={() => supplierAdvance(order)}>Mock Supplier: Send</button>;
+      return <button className="small" disabled={!!busy} onClick={() => supplierAdvance(order)}>Mock Supplier: Send</button>;
     }
     if (order.status === 'Sent') {
-      return <button disabled={!!busy} onClick={() => supplierAdvance(order)}>Mock Supplier: Deliver</button>;
+      return <button className="small" disabled={!!busy} onClick={() => supplierAdvance(order)}>Mock Supplier: Deliver</button>;
     }
     return <span>—</span>;
   }
 
   return (
     <main>
-      <h1>Purchase Orders</h1>
-      <p className="muted">Create orders from the Alerts & Reorder page, then approve and track them here.</p>
+      <div className="page-header">
+        <div>
+          <h1>Purchase orders</h1>
+          <p>Create orders from the Alerts & Reorder page, then approve and track them here.</p>
+        </div>
+      </div>
       {error && <p className="error" role="alert">{error}</p>}
       {loading ? <p>Loading…</p> : !error && (
         orders.length === 0 ? <p>No purchase orders yet.</p> : (

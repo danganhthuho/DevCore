@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { DownloadIcon } from '@/components/Icons';
 
 const money = (n) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 
@@ -16,43 +17,70 @@ export default function ReportsPage() {
     });
   }, []);
 
-  if (error) return <main><h1>Reports</h1><p className="error">{error}</p></main>;
-  if (!report) return <main><h1>Reports</h1><p>Loading…</p></main>;
+  const header = (
+    <div className="page-header">
+      <div>
+        <h1>Inventory report</h1>
+        <p>{report ? `Generated ${new Date(report.generatedAt).toLocaleString()}` : 'Stock levels and value by category.'}</p>
+      </div>
+      {report && (
+        <div className="page-actions">
+          <a className="button" href="/api/reports/inventory?format=csv"><DownloadIcon size={16} /> Export CSV</a>
+        </div>
+      )}
+    </div>
+  );
+
+  if (error) return <main>{header}<p className="error" role="alert">{error}</p></main>;
+  if (!report) return <main>{header}<p className="muted">Loading…</p></main>;
 
   const { totals, byCategory } = report;
 
   return (
     <main>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1>Inventory Report</h1>
-        <a className="button" href="/api/reports/inventory?format=csv">Export CSV</a>
-      </div>
-      <p>Generated {new Date(report.generatedAt).toLocaleString()}</p>
+      {header}
 
-      <table style={{ marginBottom: 24 }}>
-        <tbody>
-          <tr><th>Products</th><td>{totals.products}</td></tr>
-          <tr><th>Units in stock</th><td>{totals.units}</td></tr>
-          <tr><th>Inventory value</th><td>{money(totals.value)}</td></tr>
-          <tr><th>Low stock</th><td>{totals.lowStock}</td></tr>
-          <tr><th>Almost expired</th><td>{totals.almostExpired}</td></tr>
-          <tr><th>Expired</th><td>{totals.expired}</td></tr>
-        </tbody>
-      </table>
+      <div className="stat-grid">
+        <div className="stat">
+          <span className="label">Inventory value</span>
+          <span className="value">{money(totals.value)}</span>
+          <span className="hint">{totals.products} products · {totals.units.toLocaleString()} units</span>
+        </div>
+        <div className="stat tone-danger">
+          <span className="label">Low stock</span>
+          <span className="value">{totals.lowStock}</span>
+          <span className="hint">At or below minimum</span>
+        </div>
+        <div className="stat tone-warn">
+          <span className="label">Almost expired</span>
+          <span className="value">{totals.almostExpired}</span>
+          <span className="hint">Within 7 days</span>
+        </div>
+        <div className="stat tone-info">
+          <span className="label">Expired</span>
+          <span className="value">{totals.expired}</span>
+          <span className="hint">Past expiration date</span>
+        </div>
+      </div>
 
       <h2>By category</h2>
-      <table>
-        <thead>
-          <tr><th>Category</th><th>Products</th><th>Units</th><th>Value</th></tr>
-        </thead>
-        <tbody>
-          {byCategory.map((c) => (
-            <tr key={c.category}>
-              <td>{c.category}</td><td>{c.products}</td><td>{c.units}</td><td>{money(c.value)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Category</th><th className="num">Products</th><th className="num">Units</th><th className="num">Value</th></tr>
+          </thead>
+          <tbody>
+            {byCategory.map((c) => (
+              <tr key={c.category}>
+                <td><strong>{c.category}</strong></td>
+                <td className="num">{c.products}</td>
+                <td className="num">{c.units.toLocaleString()}</td>
+                <td className="num">{money(c.value)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </main>
   );
 }

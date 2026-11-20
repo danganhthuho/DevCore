@@ -1,5 +1,8 @@
+import { Manrope } from 'next/font/google';
 import './globals.css';
-import NavBar from '@/components/NavBar';
+import AppShell from '@/components/AppShell';
+
+const sans = Manrope({ subsets: ['latin'], variable: '--font-sans', display: 'swap' });
 
 export const metadata = {
   title: 'AI Inventory Tracker',
@@ -7,10 +10,9 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="en" className={sans.variable}>
       <body>
-        <NavBar />
-        {children}
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );

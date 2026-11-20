@@ -2,6 +2,15 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useToast } from '@/components/Feedback';
+
+const ALERT_BADGE = {
+  LOW_STOCK: 'low-stock',
+  EXPIRING: 'almost-expired',
+  EXPIRED: 'expired',
+  REORDER: 'order-pending',
+  ORDER_STATUS: 'order-approved',
+};
 
 function formatDate(value) {
   return value ? new Date(value).toLocaleString() : '—';
@@ -9,6 +18,7 @@ function formatDate(value) {
 
 export default function AlertsPage() {
   const router = useRouter();
+  const toast = useToast();
   const [alerts, setAlerts] = useState([]);
   const [recommendations, setRecommendations] = useState([]);
   const [role, setRole] = useState('Staff');
@@ -64,7 +74,9 @@ export default function AlertsPage() {
 
     if (!res.ok) return setError(body.error || 'Could not generate forecast.');
     if (body.insufficientData) {
-      alert(`Forecast created with limited data (${body.recordCount} sales records).`);
+      toast(`Forecast created with limited data (${body.recordCount} sales records).`, 'info');
+    } else {
+      toast(`Forecast updated: ${body.predictedDemand} units over the next ${body.forecastDays} days.`);
     }
     load();
   }
@@ -88,14 +100,18 @@ export default function AlertsPage() {
     setBusy(null);
 
     if (!res.ok) return setError(body.error || 'Could not create purchase order.');
-    alert(`Purchase order #${body.id} created.`);
+    toast(`Purchase order #${body.id} created.`);
     router.push('/orders');
   }
 
   return (
     <main>
-      <h1>Alerts & Reorder</h1>
-      <p className="muted">Low-stock, expiration, demand forecast and restocking information.</p>
+      <div className="page-header">
+        <div>
+          <h1>Alerts & Reorder</h1>
+          <p>Low-stock and expiration alerts, demand forecasts and reorder suggestions.</p>
+        </div>
+      </div>
 
       {error && <p className="error" role="alert">{error}</p>}
       {loading ? <p>Loading…</p> : (
@@ -111,14 +127,14 @@ export default function AlertsPage() {
                   <tbody>
                     {alerts.map((a) => (
                       <tr key={a.id} className={a.is_read ? 'row-muted' : ''}>
-                        <td><span className="badge neutral">{a.type}</span></td>
+                        <td><span className={`badge ${ALERT_BADGE[a.type] ?? 'neutral'}`}>{a.type.replace('_', ' ').toLowerCase()}</span></td>
                         <td>{a.products?.name ?? `#${a.product_id}`}</td>
                         <td>{a.message}</td>
                         <td>{formatDate(a.created_at)}</td>
                         <td>{a.is_read ? 'Read' : 'Unread'}</td>
                         <td>
                           {!a.is_read && (
-                            <button className="secondary" disabled={busy === `alert-${a.id}`} onClick={() => markRead(a.id)}>
+                            <button className="secondary small" disabled={busy === `alert-${a.id}`} onClick={() => markRead(a.id)}>
                               Mark read
                             </button>
                           )}
@@ -150,11 +166,12 @@ export default function AlertsPage() {
                         <td><strong>{r.recommended_quantity}</strong></td>
                         <td>{r.supplier_name || 'Not assigned'}</td>
                         <td className="action-cell">
-                          <button className="secondary" disabled={busy === `forecast-${r.product_id}`} onClick={() => generateForecast(r.product_id)}>
+                          <button className="secondary small" disabled={busy === `forecast-${r.product_id}`} onClick={() => generateForecast(r.product_id)}>
                             Generate Forecast
                           </button>
                           {role === 'Manager' && (
                             <button
+                              className="small"
                               disabled={!r.supplier_id || !r.needs_reorder || busy === `order-${r.product_id}`}
                               title={!r.needs_reorder ? 'Stock is above the recommended level.' : undefined}
                               onClick={() => createOrder(r)}>

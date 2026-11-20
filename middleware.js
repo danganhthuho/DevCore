@@ -42,10 +42,10 @@ export async function middleware(request) {
     return deny(request, response, true);
   }
 
-  // Already logged in: skip the sign-in form.
+  // Already logged in: skip the sign-in form and go to the dashboard.
   if (path === '/login') {
     const url = request.nextUrl.clone();
-    url.pathname = '/inventory';
+    url.pathname = '/dashboard';
     url.search = '';
     const redirect = NextResponse.redirect(url);
     response.cookies.getAll().forEach((cookie) => redirect.cookies.set(cookie));
