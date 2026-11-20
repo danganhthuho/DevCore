@@ -6,6 +6,7 @@ import NavBar from '@/components/NavBar';
 import CommandPalette from '@/components/CommandPalette';
 import ScannerListener from '@/components/ScannerListener';
 import { FeedbackProvider } from '@/components/Feedback';
+import { SettingsProvider } from '@/components/SettingsContext';
 
 const COLLAPSE_KEY = 'sidebar-collapsed';
 
@@ -48,6 +49,7 @@ export default function AppShell({ children }) {
 
   return (
     <FeedbackProvider>
+      <SettingsProvider enabled={!isLogin}>
       {isLogin ? children : (
         <div className={`app-shell${collapsed ? ' collapsed' : ''}`}>
           <NavBar collapsed={collapsed} onToggle={toggleSidebar} />
@@ -56,6 +58,7 @@ export default function AppShell({ children }) {
           <ScannerListener />
         </div>
       )}
+      </SettingsProvider>
     </FeedbackProvider>
   );
 }

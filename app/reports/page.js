@@ -2,11 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { DownloadIcon } from '@/components/Icons';
-import { EXPIRATION_WARNING_DAYS } from '@/lib/alerts/logic';
+import { useSettings } from '@/components/SettingsContext';
+import { formatMoney } from '@/lib/format';
+import { SkeletonLines, SkeletonTile } from '@/components/Skeleton';
 
-const money = (n) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+const money = (n) => formatMoney(n);
 
 export default function ReportsPage() {
+  const settings = useSettings(); // re-renders money and labels when settings change
   const [report, setReport] = useState(null);
   const [error, setError] = useState('');
 
@@ -33,7 +36,15 @@ export default function ReportsPage() {
   );
 
   if (error) return <main>{header}<p className="error" role="alert">{error}</p></main>;
-  if (!report) return <main>{header}<p className="muted">Loading…</p></main>;
+  if (!report) {
+    return (
+      <main>
+        {header}
+        <div className="stat-grid">{[0, 1, 2, 3].map((i) => <SkeletonTile key={i} />)}</div>
+        <section className="section-card"><SkeletonLines lines={6} /></section>
+      </main>
+    );
+  }
 
   const { totals, byCategory, waste } = report;
 
@@ -55,7 +66,7 @@ export default function ReportsPage() {
         <div className="stat tone-warn">
           <span className="label">Almost expired</span>
           <span className="value">{totals.almostExpired}</span>
-          <span className="hint">Within {EXPIRATION_WARNING_DAYS} days</span>
+          <span className="hint">Within {settings.expiration_warning_days} days</span>
         </div>
         <div className="stat tone-info">
           <span className="label">Expired</span>

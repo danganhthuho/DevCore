@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { Skeleton } from '@/components/Skeleton';
 
 // Tiny charts that live inside the dashboard tiles. Colours come from the
 // --viz-* tokens in globals.css (checked for colour blindness in light and
@@ -44,7 +45,7 @@ function MiniColumns({ columns, label, idle, tall = 44, labels, showValues = fal
 // Days of stock left: products grouped by how soon they run out at their
 // recent sales pace. Most urgent on the left.
 export function RunwayChart({ runway }) {
-  if (!runway) return <span className="spark-empty" />;
+  if (!runway) return <Skeleton height={76} radius={8} style={{ marginTop: 10 }} />;
   const soon = runway.soonest[0];
   return (
     <MiniColumns
@@ -61,7 +62,7 @@ export function RunwayChart({ runway }) {
 
 // Expiring in the next 14 days: one column per day, starting today.
 export function ExpiryStrip({ products, today, days = 14 }) {
-  if (!products) return <span className="spark-empty" />;
+  if (!products) return <Skeleton height={76} radius={8} style={{ marginTop: 10 }} />;
   const dates = Array.from({ length: days }, (_, i) => {
     const d = new Date(`${today}T00:00:00Z`);
     d.setUTCDate(d.getUTCDate() + i);

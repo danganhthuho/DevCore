@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useToast } from '@/components/Feedback';
 import { ACTIVITY_LABELS } from '@/lib/activity';
 import { FORECAST_DAYS } from '@/lib/forecast/logic';
+import { Skeleton, SkeletonLines } from '@/components/Skeleton';
 
 const WEEKS = 13;
 
@@ -101,7 +102,7 @@ export default function ProductInsights({ productId, refreshKey }) {
   const toast = useToast();
   const [days, setDays] = useState(null);
   const [forecast, setForecast] = useState(null);
-  const [activity, setActivity] = useState({ items: [] });
+  const [activity, setActivity] = useState(null); // null = still loading
   const [updating, setUpdating] = useState(false);
 
   const load = useCallback(async () => {
@@ -112,7 +113,7 @@ export default function ProductInsights({ productId, refreshKey }) {
     ]);
     if (salesRes.ok) setDays(await salesRes.json());
     if (forecastRes.ok) setForecast(await forecastRes.json());
-    if (activityRes.ok) setActivity(await activityRes.json());
+    setActivity(activityRes.ok ? await activityRes.json() : { items: [] });
   }, [productId]);
 
   useEffect(() => { load(); }, [load, refreshKey]);
@@ -153,17 +154,18 @@ export default function ProductInsights({ productId, refreshKey }) {
             <span><strong>{forecast.predicted_demand}</strong> forecast next {FORECAST_DAYS} days</span>
           )}
         </div>
-        {days === null ? <p className="muted">Loading…</p>
+        {days === null ? <Skeleton height={180} radius={10} />
           : total90 === 0 ? <p className="empty">No sales recorded yet. Use “Record a sale” above.</p>
           : <SalesChart weeks={weeks} forecastPerWeek={forecastPerWeek} />}
       </section>
 
       <section className="section-card">
         <h2>History</h2>
-        {activity.unavailable && <p className="muted">{activity.unavailable}</p>}
-        {!activity.unavailable && activity.items.length === 0 && <p className="empty">No changes recorded yet.</p>}
+        {activity == null && <SkeletonLines lines={5} />}
+        {activity?.unavailable && <p className="muted">{activity.unavailable}</p>}
+        {activity && !activity.unavailable && activity.items.length === 0 && <p className="empty">No changes recorded yet.</p>}
         <ul className="timeline">
-          {activity.items.map((a) => (
+          {(activity?.items ?? []).map((a) => (
             <li key={a.id}>
               <span className={`badge activity-${a.action}`}>{ACTIVITY_LABELS[a.action] ?? a.action}</span>
               <div className="body">

@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { PlusIcon, ScanIcon } from '@/components/Icons';
 import { ExpiryStrip, RunwayChart, StockBar } from '@/components/MiniCharts';
 import { localIsoDate } from '@/lib/alerts/logic';
+import { useSettings } from '@/components/SettingsContext';
+import { SkeletonLines, SkeletonTile } from '@/components/Skeleton';
 import { OPEN_ORDER_STATUSES } from '@/lib/orders/logic';
 
 function greeting() {
@@ -29,9 +31,10 @@ const inventoryLink = (status) => `/inventory?status=${encodeURIComponent(status
 // Home screen (PRD "Reports & Dashboard", TC-010): today's numbers and what needs attention.
 export default function DashboardPage() {
   const router = useRouter();
+  const settings = useSettings();
   const [me, setMe] = useState(null);
   const [products, setProducts] = useState(null);
-  const [alerts, setAlerts] = useState([]);
+  const [alerts, setAlerts] = useState(null); // null = still loading
   const [orders, setOrders] = useState(null);
   const [runway, setRunway] = useState(null);
   const [error, setError] = useState('');
@@ -51,7 +54,7 @@ export default function DashboardPage() {
       const user = meRes.ok ? await meRes.json() : null;
       setMe(user);
       setProducts(await productsRes.json());
-      if (alertsRes.ok) setAlerts(await alertsRes.json());
+      setAlerts(alertsRes.ok ? await alertsRes.json() : []);
       if (ordersRes.ok) setOrders(await ordersRes.json());
       if (runwayRes.ok) setRunway(await runwayRes.json());
     }
@@ -75,7 +78,7 @@ export default function DashboardPage() {
       <div className="page-header">
         <div>
           <h1>{greeting()}{name ? `, ${name}` : ''}</h1>
-          <p>Here&apos;s what&apos;s happening in your store today.</p>
+          <p>Here&apos;s what&apos;s happening at {settings.store_name} today.</p>
         </div>
         <div className="page-actions">
           <Link className="button secondary" href="/inventory?scan=1"><ScanIcon size={16} /> Scan</Link>
@@ -86,6 +89,7 @@ export default function DashboardPage() {
       {error && <p className="error" role="alert">{error}</p>}
 
       <div className="stat-grid">
+        {products == null ? [0, 1, 2, 3].map((i) => <SkeletonTile key={i} />) : (<>
         <div className="stat spark-tile">
           <span className="label">Runs out this week</span>
           <span className="value">{runway ? runway.runningOutThisWeek : '—'}<small> products</small></span>
@@ -112,6 +116,7 @@ export default function DashboardPage() {
           <span className="value">{orders ? openOrders.length : '—'}</span>
           <span className="hint">{openOrders.filter((o) => o.status === 'Pending Approval').length} awaiting approval</span>
         </Link>
+        </>)}
       </div>
 
       <div className="panel-grid">
@@ -120,7 +125,7 @@ export default function DashboardPage() {
             <h2>Needs attention</h2>
             <Link href="/alerts">View all alerts →</Link>
           </div>
-          {alerts.length === 0 ? <p className="empty">No unread alerts. You&apos;re all caught up.</p> : (
+          {alerts == null ? <SkeletonLines lines={4} /> : alerts.length === 0 ? <p className="empty">No unread alerts. You&apos;re all caught up.</p> : (
             <ul className="feed">
               {alerts.slice(0, 6).map((a) => (
                 <li key={a.id}>
@@ -142,7 +147,7 @@ export default function DashboardPage() {
             <h2>Running low</h2>
             <Link href={inventoryLink('Low stock')}>See all →</Link>
           </div>
-          {runningLow.length === 0 ? <p className="empty">Nothing is below its minimum.</p> : (
+          {products == null ? <SkeletonLines lines={4} /> : runningLow.length === 0 ? <p className="empty">Nothing is below its minimum.</p> : (
             <ul className="feed">
               {runningLow.map((p) => (
                 <li key={p.id}>

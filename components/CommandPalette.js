@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { LINKS } from '@/components/NavBar';
 import { PlusIcon, ScanIcon, SearchIcon, UploadIcon } from '@/components/Icons';
 import { hasRole } from '@/lib/auth/roles';
+import { SETTINGS_TABS } from '@/components/settings/tabs';
 
 const ACTIONS = [
   { label: 'Add a product', href: '/products/new', Icon: PlusIcon },
@@ -71,6 +72,10 @@ export default function CommandPalette({ role }) {
     }
     for (const [href, label, Icon, minRole] of LINKS) {
       if ((minRole === 'Staff' || hasRole(role, minRole)) && matches(label)) list.push({ group: 'Pages', label, href, Icon });
+    }
+    for (const t of SETTINGS_TABS) {
+      const label = `Settings: ${t.label}`;
+      if (hasRole(role, t.role) && (matches(label) || matches(t.title))) list.push({ group: 'Settings', label, href: `/settings?tab=${t.id}`, Icon: t.Icon });
     }
     for (const a of ACTIONS) if (matches(a.label)) list.push({ group: 'Actions', ...a });
     if (/^\d{6,}$/.test(q) && products.length === 0) {

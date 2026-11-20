@@ -1,6 +1,7 @@
 import { Manrope } from 'next/font/google';
 import './globals.css';
 import AppShell from '@/components/AppShell';
+import { THEME_SCRIPT } from '@/components/ThemeControl';
 
 const sans = Manrope({ subsets: ['latin'], variable: '--font-sans', display: 'swap' });
 
@@ -12,7 +13,12 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={sans.variable}>
+    // suppressHydrationWarning: the theme script may set data-theme on <html>
+    // before React loads, which is expected.
+    <html lang="en" className={sans.variable} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
       <body>
         <AppShell>{children}</AppShell>
       </body>

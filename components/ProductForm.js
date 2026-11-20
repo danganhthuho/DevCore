@@ -9,6 +9,9 @@ import ProductInsights from '@/components/ProductInsights';
 import { ScanIcon } from '@/components/Icons';
 import { CATEGORIES } from '@/lib/products/constants';
 import { validateProduct } from '@/lib/products/validate';
+import { currencySymbol } from '@/lib/format';
+import { useSettings } from '@/components/SettingsContext';
+import { Skeleton } from '@/components/Skeleton';
 
 const EMPTY = {
   name: '', category: '', quantity: '0', minimum_quantity: '0', price: '',
@@ -19,12 +22,14 @@ const EMPTY = {
 export default function ProductForm({ productId, initial = {} }) {
   const router = useRouter();
   const toast = useToast();
+  useSettings(); // re-render when the currency changes
   const [form, setForm] = useState({ ...EMPTY, ...initial });
   const [errors, setErrors] = useState({});
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [suppliers, setSuppliers] = useState([]);
+  const [loadingProduct, setLoadingProduct] = useState(Boolean(productId));
   const [refreshKey, setRefreshKey] = useState(0); // reloads chart/history after stock changes
 
   useEffect(() => {
@@ -40,7 +45,8 @@ export default function ProductForm({ productId, initial = {} }) {
         for (const key of Object.keys(EMPTY)) values[key] = p[key] == null ? '' : String(p[key]);
         setForm(values);
       })
-      .catch(() => setMessage('Product not found.'));
+      .catch(() => setMessage('Product not found.'))
+      .finally(() => setLoadingProduct(false));
   }, [productId]);
 
   function update(field) {
@@ -98,6 +104,15 @@ export default function ProductForm({ productId, initial = {} }) {
         </div>
       </div>
 
+      {loadingProduct ? (
+        <div className="card" role="status" aria-label="Loading product">
+          <div className="form-grid">
+            {Array.from({ length: 9 }, (_, i) => (
+              <div key={i}><Skeleton width="40%" height={12} /><Skeleton height={40} radius={8} style={{ marginTop: 8 }} /></div>
+            ))}
+          </div>
+        </div>
+      ) : (
       <form className="card" onSubmit={handleSubmit} noValidate>
         <div className="form-grid">
           {field('name', 'Product Name *', { placeholder: 'e.g. Whole Milk 1L' })}
@@ -112,7 +127,7 @@ export default function ProductForm({ productId, initial = {} }) {
 
           {field('quantity', 'Quantity *', { inputMode: 'numeric' })}
           {field('minimum_quantity', 'Minimum Quantity *', { inputMode: 'numeric' })}
-          {field('price', 'Price ($) *', { inputMode: 'decimal', placeholder: '0.00' })}
+          {field('price', `Price (${currencySymbol()}) *`, { inputMode: 'decimal', placeholder: '0.00' })}
           {field('expiration_date', 'Expiration Date', { type: 'date' })}
 
           <div>
@@ -146,6 +161,7 @@ export default function ProductForm({ productId, initial = {} }) {
           <button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save product'}</button>
         </div>
       </form>
+      )}
 
       {productId && (
         <>

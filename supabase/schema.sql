@@ -94,6 +94,18 @@ create table public.product_activity (
 );
 create index product_activity_product_idx on public.product_activity (product_id, created_at desc);
 
+-- Store-wide settings: always exactly one row (Settings page).
+create table public.app_settings (
+  id                      smallint primary key default 1 check (id = 1),
+  store_name              varchar(60) not null default 'My Store',
+  time_zone               varchar(64) not null default 'America/Los_Angeles',
+  expiration_warning_days int         not null default 7 check (expiration_warning_days between 1 and 60),
+  currency                char(3)     not null default 'USD',
+  updated_at              timestamptz not null default now(),
+  updated_by              uuid references public.profiles (id)
+);
+insert into public.app_settings (id) values (1);
+
 -- Every new auth user gets a Staff profile. Promote the first Owner by hand;
 -- after that the Owner can change roles on the Team page:
 --   update public.profiles set role = 'Owner' where username = 'owner@example.com';
@@ -147,6 +159,7 @@ alter table public.alerts           enable row level security;
 alter table public.purchase_orders  enable row level security;
 alter table public.waste_records    enable row level security;
 alter table public.product_activity enable row level security;
+alter table public.app_settings     enable row level security;
 
 create policy "profiles: read own, managers read all" on public.profiles
   for select to authenticated using (id = auth.uid() or public.is_manager());
@@ -186,6 +199,11 @@ create policy "purchase orders: create" on public.purchase_orders
   for insert to authenticated
   with check (created_by = auth.uid() and status = 'Pending Approval');
 create policy "purchase orders: managers update" on public.purchase_orders
+  for update to authenticated using (public.is_manager()) with check (public.is_manager());
+
+create policy "settings: read" on public.app_settings
+  for select to authenticated using (true);
+create policy "settings: managers update" on public.app_settings
   for update to authenticated using (public.is_manager()) with check (public.is_manager());
 
 create policy "activity: read" on public.product_activity

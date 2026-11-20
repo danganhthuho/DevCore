@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useConfirm, useToast } from '@/components/Feedback';
 import { isManager } from '@/lib/auth/roles';
+import { SkeletonLines } from '@/components/Skeleton';
 
 const ALERT_BADGE = {
   LOW_STOCK: 'low-stock',
@@ -28,7 +29,7 @@ export default function AlertsPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(null);
 
-  // Only the first load shows "Loading…"; later reloads update in place.
+  // Only the first load shows placeholders; later reloads update in place.
   const load = useCallback(async () => {
     const [alertsRes, reorderRes, meRes] = await Promise.all([
       fetch('/api/alerts'),
@@ -171,7 +172,12 @@ export default function AlertsPage() {
       </div>
 
       {error && <p className="error" role="alert">{error}</p>}
-      {loading ? <p>Loading…</p> : (
+      {loading ? (
+        <>
+          <section className="section-card"><SkeletonLines lines={5} /></section>
+          <section className="section-card"><SkeletonLines lines={5} /></section>
+        </>
+      ) : (
         <>
           <section className="section-card">
             <div className="panel-head">

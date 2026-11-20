@@ -4,9 +4,10 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  BellIcon, BoxIcon, ChartIcon, DashboardIcon, FactoryIcon, LogoutIcon,
-  SearchIcon, ShieldIcon, SidebarIcon, TruckIcon, UsersIcon,
+  BellIcon, BoxIcon, ChartIcon, DashboardIcon, FactoryIcon, SearchIcon, SidebarIcon, TruckIcon,
 } from '@/components/Icons';
+import { useSettings } from '@/components/SettingsContext';
+import ProfileMenu from '@/components/ProfileMenu';
 import { hasRole } from '@/lib/auth/roles';
 import Brand from '@/components/Brand';
 
@@ -19,15 +20,9 @@ export const LINKS = [
   ['/orders', 'Orders', TruckIcon, 'Staff'],
   ['/suppliers', 'Suppliers', FactoryIcon, 'Manager'],
   ['/reports', 'Reports', ChartIcon, 'Manager'],
-  ['/team', 'Team', UsersIcon, 'Owner'],
-  ['/account', 'Account', ShieldIcon, 'Staff'],
 ];
-
-// "Thomas Johnson" -> "TJ", "islandcity57" -> "IS"
-function initials(name) {
-  const words = name.trim().split(/\s+/);
-  return (words.length > 1 ? words[0][0] + words[1][0] : name.slice(0, 2)).toUpperCase();
-}
+// Profile, security, appearance, store settings and team live in the
+// profile menu at the bottom of the sidebar (ProfileMenu → /settings).
 
 // Sidebar on desktop (full, or shrunk to icons when `collapsed`), a top bar
 // on phones (see .sidebar in globals.css).
@@ -35,6 +30,7 @@ export default function NavBar({ collapsed = false, onToggle }) {
   const pathname = usePathname();
   const router = useRouter();
   const [me, setMe] = useState(null);
+  const settings = useSettings();
 
   // Reload when the Account page changes the nickname.
   useEffect(() => {
@@ -72,7 +68,7 @@ export default function NavBar({ collapsed = false, onToggle }) {
       <div className="sidebar-top">
         <Link href="/dashboard" className="brand" aria-label="DevCore Inventory Tracker, go to dashboard">
           <Brand height={26} compactOnPhone />
-          <span className="brand-name">Inventory Tracker</span>
+          <span className="brand-name" title="Store name (Settings)">{settings.store_name}</span>
         </Link>
         <button type="button" className="sidebar-toggle" onClick={onToggle}
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} aria-expanded={!collapsed}
@@ -97,15 +93,7 @@ export default function NavBar({ collapsed = false, onToggle }) {
       ))}
 
       <div className="sidebar-footer">
-        {me && (
-          <Link href="/account" className="user-chip" title={`${me.displayName ?? me.username} · ${me.role}`}>
-            <span className="avatar">{initials(me.displayName ?? me.username)}</span>
-            <span className="who"><strong>{me.displayName ?? me.username}</strong><span>{me.role}</span></span>
-          </Link>
-        )}
-        <button type="button" className="secondary small logout" onClick={handleLogout} title="Log out">
-          <LogoutIcon size={16} /><span>Log out</span>
-        </button>
+        <ProfileMenu me={me} collapsed={collapsed} onLogout={handleLogout} />
       </div>
     </nav>
   );

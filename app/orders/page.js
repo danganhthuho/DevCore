@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useConfirm, useToast } from '@/components/Feedback';
 import { isManager } from '@/lib/auth/roles';
+import { SkeletonLines } from '@/components/Skeleton';
 
 const STATUS_BADGE = {
   'Pending Approval': 'order-pending',
@@ -181,7 +182,7 @@ export default function OrdersPage() {
       </section>
 
       {error && <p className="error" role="alert">{error}</p>}
-      {loading ? <p className="muted">Loading…</p> : !error && (
+      {loading ? <section className="section-card"><SkeletonLines lines={6} /></section> : !error && (
         <div className="table-wrap">
           <table>
             <thead>
