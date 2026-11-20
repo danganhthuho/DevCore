@@ -8,7 +8,7 @@ import { validateProduct } from '@/lib/products/validate';
 
 const EMPTY = {
   name: '', category: '', quantity: '0', minimum_quantity: '0', price: '',
-  expiration_date: '', barcode: '', location: '',
+  expiration_date: '', barcode: '', location: '', supplier_id: '',
 };
 
 // Add / Edit Product screen (SFDS 6.1.3). Pass productId to edit.
@@ -19,6 +19,11 @@ export default function ProductForm({ productId, initial = {} }) {
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
   const [scanning, setScanning] = useState(false);
+  const [suppliers, setSuppliers] = useState([]);
+
+  useEffect(() => {
+    fetch('/api/suppliers').then((r) => r.ok && r.json()).then((list) => list && setSuppliers(list));
+  }, []);
 
   useEffect(() => {
     if (!productId) return;
@@ -106,6 +111,15 @@ export default function ProductForm({ productId, initial = {} }) {
           </div>
 
           {field('location', 'Location', { placeholder: 'Aisle 3, Shelf B' })}
+
+          <div>
+            <label htmlFor="supplier_id">Supplier</label>
+            <select id="supplier_id" value={form.supplier_id} onChange={update('supplier_id')}>
+              <option value="">—</option>
+              {suppliers.map((s) => <option key={s.id} value={String(s.id)}>{s.name}</option>)}
+            </select>
+            {errors.supplier_id && <p className="error">{errors.supplier_id}</p>}
+          </div>
         </div>
 
         {scanning && (

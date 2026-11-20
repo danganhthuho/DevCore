@@ -134,7 +134,7 @@ export default function AlertsPage() {
           <section className="section-card">
             <h2>Reorder Recommendations</h2>
             <p className="muted">Recommendation = minimum quantity + latest 30-day forecast − current quantity.</p>
-            {recommendations.length === 0 ? <p>No products currently need a reorder.</p> : (
+            {recommendations.length === 0 ? <p>No products yet.</p> : (
               <div className="table-wrap">
                 <table>
                   <thead>
@@ -154,7 +154,10 @@ export default function AlertsPage() {
                             Generate Forecast
                           </button>
                           {role === 'Manager' && (
-                            <button disabled={!r.supplier_id || busy === `order-${r.product_id}`} onClick={() => createOrder(r)}>
+                            <button
+                              disabled={!r.supplier_id || !r.needs_reorder || busy === `order-${r.product_id}`}
+                              title={!r.needs_reorder ? 'Stock is above the recommended level.' : undefined}
+                              onClick={() => createOrder(r)}>
                               Create Order
                             </button>
                           )}

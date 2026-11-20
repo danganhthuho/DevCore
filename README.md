@@ -115,8 +115,26 @@ All endpoints require a logged-in session. Expired or missing sessions return `4
 | PATCH | `/api/products/:id/quantity` | Update stock quantity |
 | GET | `/api/products/barcode/:code` | Look up a product by barcode |
 | GET | `/api/reports/inventory?format=csv` | Inventory report, as JSON or CSV (Manager only) |
+| GET | `/api/suppliers` | Supplier list for the product form |
+| GET | `/api/alerts?unread=&type=&product_id=` | List alerts (also refreshes expiration alerts) |
+| PATCH | `/api/alerts/:id` | Mark an alert read with `{ is_read }` |
+| GET, POST | `/api/forecasts/:productId` | Latest forecast, or generate a new one |
+| GET | `/api/reorder?all=true` | Reorder recommendations |
+| GET, POST | `/api/purchase-orders` | List or create purchase orders (Manager only) |
+| PATCH | `/api/purchase-orders/:id` | Approve or cancel with `{ status }` (Manager only) |
+| POST | `/api/purchase-orders/:id/supplier` | Mock supplier: Approved → Sent → Delivered (Manager only) |
 
 Validation errors return `400`. A duplicate barcode, or deleting a product that has purchase orders, returns `409`.
+
+## Deploying to Vercel
+
+`.env.local` is not in git, so Vercel needs the same values:
+
+1. **Vercel → Project → Settings → Environment Variables:** add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` (and `NEXT_PUBLIC_TIME_ZONE` if the store isn't on Pacific time) for Production, Preview and Development.
+2. **Redeploy:** Deployments → ⋯ → Redeploy. `NEXT_PUBLIC_` values are built into the app, so old deployments don't pick them up.
+3. **Supabase → Authentication → URL Configuration:** set Site URL to the Vercel domain.
+
+Without the Supabase variables every page fails with `500: MIDDLEWARE_INVOCATION_FAILED`.
 
 ## Testing
 

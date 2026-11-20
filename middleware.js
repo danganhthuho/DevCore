@@ -42,6 +42,16 @@ export async function middleware(request) {
     return deny(request, response, true);
   }
 
+  // Already logged in: skip the sign-in form.
+  if (path === '/login') {
+    const url = request.nextUrl.clone();
+    url.pathname = '/inventory';
+    url.search = '';
+    const redirect = NextResponse.redirect(url);
+    response.cookies.getAll().forEach((cookie) => redirect.cookies.set(cookie));
+    response = redirect;
+  }
+
   response.cookies.set('last_active', String(Date.now()), {
     httpOnly: true,
     sameSite: 'lax',

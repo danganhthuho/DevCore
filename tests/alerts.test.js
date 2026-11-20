@@ -3,6 +3,7 @@ import {
   buildProductAlerts,
   checkExpiration,
   checkLowStock,
+  localIsoDate,
 } from '@/lib/alerts/logic';
 
 const today = new Date('2026-10-27T12:00:00Z');
@@ -47,5 +48,16 @@ describe('Stock and expiration alerts', () => {
         today
       )
     ).toBe('Expired');
+  });
+
+  it('uses the store time zone for today, not UTC', () => {
+    // 8pm on Oct 27 in Los Angeles is already Oct 28 in UTC. A product
+    // expiring Oct 27 is still good for the rest of that day.
+    const lateEvening = new Date('2026-10-28T03:00:00Z');
+    expect(localIsoDate(lateEvening, 'America/Los_Angeles')).toBe('2026-10-27');
+    expect(localIsoDate(lateEvening, 'Asia/Tokyo')).toBe('2026-10-28');
+    expect(
+      checkExpiration({ expiration_date: '2026-10-27' }, lateEvening)
+    ).toBe('Almost Expired');
   });
 });
