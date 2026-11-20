@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import BarcodeScanner from '@/components/BarcodeScanner';
 import { useToast } from '@/components/Feedback';
+import StockActions from '@/components/StockActions';
 import { ScanIcon } from '@/components/Icons';
 import { CATEGORIES } from '@/lib/products/constants';
 import { validateProduct } from '@/lib/products/validate';
@@ -143,6 +144,11 @@ export default function ProductForm({ productId, initial = {} }) {
           <button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save product'}</button>
         </div>
       </form>
+
+      {productId && (
+        <StockActions productId={productId}
+          onStockChange={(quantity) => setForm((f) => ({ ...f, quantity: String(quantity) }))} />
+      )}
     </main>
   );
 }

@@ -8,6 +8,7 @@ import { useConfirm, useToast } from '@/components/Feedback';
 import { PlusIcon, ScanIcon } from '@/components/Icons';
 import { CATEGORIES } from '@/lib/products/constants';
 import { STATUSES } from '@/lib/inventory/status';
+import { isManager } from '@/lib/auth/roles';
 
 const COLUMNS = [
     ['name', 'Name'],
@@ -34,6 +35,9 @@ export default function InventoryPage() {
     const [search, setSearch] = useState('');
     const [category, setCategory] = useState('');
     const [status, setStatus] = useState('');
+    const [supplier, setSupplier] = useState('');
+    const [expiresBy, setExpiresBy] = useState('');
+    const [suppliers, setSuppliers] = useState([]);
     const [sort, setSort] = useState({ key: 'name', dir: 1 });
     const [role, setRole] = useState('Staff');
     const [scanning, setScanning] = useState(false);
@@ -45,6 +49,7 @@ export default function InventoryPage() {
         if (STATUSES.includes(params.get('status'))) setStatus(params.get('status'));
         if (params.get('scan')) setScanning(true);
         fetch('/api/auth/me').then((r) => r.ok && r.json()).then((me) => me && setRole(me.role));
+        fetch('/api/suppliers').then((r) => r.ok && r.json()).then((list) => list && setSuppliers(list));
     }, []);
 
     const load = useCallback(async () => {
@@ -52,6 +57,8 @@ export default function InventoryPage() {
         if (search) params.set('search', search);
         if (category) params.set('category', category);
         if (status) params.set('status', status);
+        if (supplier) params.set('supplier', supplier);
+        if (expiresBy) params.set('expires_by', expiresBy);
 
         const res = await fetch('/api/products?' + params);
         if (res.status === 401) return router.push('/login');
@@ -59,7 +66,7 @@ export default function InventoryPage() {
         setError('');
         setProducts(await res.json());
         setLoaded(true);
-    }, [search, category, status, router]);
+    }, [search, category, status, supplier, expiresBy, router]);
 
     // Wait until the user stops typing for 300 ms before searching
     useEffect(() => {
@@ -115,7 +122,7 @@ export default function InventoryPage() {
         }
     }, [router, confirm]);
 
-    const filtered = search || category || status;
+    const filtered = search || category || status || supplier || expiresBy;
 
     return (
         <main>
@@ -141,6 +148,17 @@ export default function InventoryPage() {
             <option value="">All statuses</option>
             {STATUSES.map((s) => <option key={s}>{s}</option>)}
             </select>
+            <select aria-label="Supplier" value={supplier} onChange={(e) => setSupplier(e.target.value)}>
+            <option value="">All suppliers</option>
+            {suppliers.map((s) => <option key={s.id} value={String(s.id)}>{s.name}</option>)}
+            </select>
+            <input type="date" aria-label="Expires on or before" title="Expires on or before"
+            value={expiresBy} onChange={(e) => setExpiresBy(e.target.value)} />
+            {filtered && (
+            <button className="secondary" onClick={() => {
+                setSearch(''); setCategory(''); setStatus(''); setSupplier(''); setExpiresBy('');
+            }}>Clear filters</button>
+            )}
         </div>
 
         {scanning && <BarcodeScanner onDetected={handleScan} onClose={() => setScanning(false)} />}
@@ -171,7 +189,7 @@ export default function InventoryPage() {
                 <td>
                     <div className="action-cell">
                     <Link href={`/products/${p.id}/edit`}>Edit</Link>
-                    {role === 'Manager' && (
+                    {isManager(role) && (
                         <button className="link-button danger" onClick={() => handleDelete(p)}>Delete</button>
                     )}
                     </div>

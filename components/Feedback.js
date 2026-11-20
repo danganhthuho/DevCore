@@ -21,6 +21,7 @@ export function FeedbackProvider({ children }) {
     setTimeout(() => dismiss(id), 4000);
   }, [dismiss]);
 
+
   const confirm = useCallback((options) => new Promise((resolve) => {
     setDialog({ ...options, resolve });
   }), []);

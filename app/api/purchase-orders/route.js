@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
-import { requireRole } from '@/lib/auth/session';
+import { requireUser } from '@/lib/auth/session';
 import { createPurchaseOrder, listPurchaseOrders } from '@/lib/orders/service';
 
-// Current SFDS/database rule: purchase orders are Manager-only.
+// TC-011: any logged-in user can view orders and create one (it starts as
+// Pending Approval). Approving and status changes are Manager-only.
 export async function GET() {
-  const auth = await requireRole('Manager');
+  const auth = await requireUser();
   if (auth.response) return auth.response;
 
   const result = await listPurchaseOrders(auth.supabase);
@@ -12,7 +13,7 @@ export async function GET() {
 }
 
 export async function POST(request) {
-  const auth = await requireRole('Manager');
+  const auth = await requireUser();
   if (auth.response) return auth.response;
 
   const body = await request.json().catch(() => ({}));

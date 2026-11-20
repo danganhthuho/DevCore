@@ -5,7 +5,7 @@
 create table public.profiles (
   id         uuid primary key references auth.users (id) on delete cascade,
   username   varchar(100) not null unique,
-  role       varchar(10)  not null default 'Staff' check (role in ('Staff', 'Manager')),
+  role       varchar(10)  not null default 'Staff' check (role in ('Staff', 'Manager', 'Owner')),
   created_at timestamptz  not null default now()
 );
 
@@ -62,14 +62,27 @@ create table public.purchase_orders (
   supplier_id int  not null references public.suppliers (id),
   created_by  uuid not null references public.profiles (id),
   quantity    int  not null check (quantity > 0),
-  status      varchar(12) not null default 'Pending' check (status in
-                ('Pending', 'Approved', 'Sent', 'Delivered', 'Cancelled')),
+  -- Statuses follow TC-011: Staff create, a Manager approves (Submitted).
+  status      varchar(20) not null default 'Pending Approval' check (status in
+                ('Pending Approval', 'Submitted', 'Delivered', 'Cancelled')),
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()
 );
 
--- Every new auth user gets a Staff profile. Promote managers by hand:
---   update public.profiles set role = 'Manager' where username = 'manager@example.com';
+-- Expired or discarded stock (PRD 4.1 #10, Waste Tracking).
+create table public.waste_records (
+  id          serial primary key,
+  product_id  int  not null references public.products (id) on delete cascade,
+  quantity    int  not null check (quantity > 0),
+  reason      varchar(20) not null check (reason in ('Expired', 'Damaged', 'Spoiled', 'Other')),
+  note        varchar(200),
+  recorded_by uuid not null references public.profiles (id),
+  recorded_at timestamptz not null default now()
+);
+
+-- Every new auth user gets a Staff profile. Promote the first Owner by hand;
+-- after that the Owner can change roles on the Team page:
+--   update public.profiles set role = 'Owner' where username = 'owner@example.com';
 create function public.handle_new_user() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
@@ -85,7 +98,14 @@ create trigger on_auth_user_created
 create function public.is_manager() returns boolean
 language sql stable security definer set search_path = public as $$
   select exists (
-    select 1 from public.profiles where id = auth.uid() and role = 'Manager'
+    select 1 from public.profiles where id = auth.uid() and role in ('Manager', 'Owner')
+  );
+$$;
+
+create function public.is_owner() returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.profiles where id = auth.uid() and role = 'Owner'
   );
 $$;
 
@@ -97,9 +117,12 @@ alter table public.sales_records    enable row level security;
 alter table public.demand_forecasts enable row level security;
 alter table public.alerts           enable row level security;
 alter table public.purchase_orders  enable row level security;
+alter table public.waste_records    enable row level security;
 
 create policy "profiles: read own, managers read all" on public.profiles
   for select to authenticated using (id = auth.uid() or public.is_manager());
+create policy "profiles: owners change roles" on public.profiles
+  for update to authenticated using (public.is_owner()) with check (public.is_owner());
 
 create policy "suppliers: read" on public.suppliers
   for select to authenticated using (true);
@@ -126,6 +149,17 @@ create policy "forecasts: all" on public.demand_forecasts
 create policy "alerts: all" on public.alerts
   for all to authenticated using (true) with check (true);
 
--- Manager-only per the SFDS. TC-011 lets Staff create orders: open question.
-create policy "purchase orders: managers" on public.purchase_orders
-  for all to authenticated using (public.is_manager()) with check (public.is_manager());
+-- TC-011: anyone can create an order (as Pending Approval); only managers
+-- approve or change it.
+create policy "purchase orders: read" on public.purchase_orders
+  for select to authenticated using (true);
+create policy "purchase orders: create" on public.purchase_orders
+  for insert to authenticated
+  with check (created_by = auth.uid() and status = 'Pending Approval');
+create policy "purchase orders: managers update" on public.purchase_orders
+  for update to authenticated using (public.is_manager()) with check (public.is_manager());
+
+create policy "waste: read" on public.waste_records
+  for select to authenticated using (true);
+create policy "waste: add" on public.waste_records
+  for insert to authenticated with check (recorded_by = auth.uid());

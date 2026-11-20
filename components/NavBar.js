@@ -4,17 +4,21 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  BellIcon, BoxIcon, ChartIcon, DashboardIcon, LogoIcon, LogoutIcon, TruckIcon,
+  BellIcon, BoxIcon, ChartIcon, DashboardIcon, FactoryIcon, LogoIcon, LogoutIcon,
+  ShieldIcon, TruckIcon, UsersIcon,
 } from '@/components/Icons';
+import { hasRole } from '@/lib/auth/roles';
 
-// Links shown to everyone, then Manager-only pages (reports and purchase
-// orders are Manager-only in the API).
+// [href, label, icon, lowest role that sees it]. The API checks roles too.
 const LINKS = [
-  ['/dashboard', 'Dashboard', DashboardIcon, null],
-  ['/inventory', 'Inventory', BoxIcon, null],
-  ['/alerts', 'Alerts & Reorder', BellIcon, null],
-  ['/orders', 'Orders', TruckIcon, 'Manager'],
+  ['/dashboard', 'Dashboard', DashboardIcon, 'Staff'],
+  ['/inventory', 'Inventory', BoxIcon, 'Staff'],
+  ['/alerts', 'Alerts & Reorder', BellIcon, 'Staff'],
+  ['/orders', 'Orders', TruckIcon, 'Staff'],
+  ['/suppliers', 'Suppliers', FactoryIcon, 'Manager'],
   ['/reports', 'Reports', ChartIcon, 'Manager'],
+  ['/team', 'Team', UsersIcon, 'Owner'],
+  ['/account', 'Account', ShieldIcon, 'Staff'],
 ];
 
 // Sidebar on desktop, a top bar on phones (see .sidebar in globals.css).
@@ -43,7 +47,7 @@ export default function NavBar() {
         <span className="brand-name">Inventory Tracker<small>DevCore</small></span>
       </Link>
 
-      {LINKS.filter(([, , , role]) => !role || me?.role === role).map(([href, label, Icon]) => (
+      {LINKS.filter(([, , , role]) => role === 'Staff' || hasRole(me?.role, role)).map(([href, label, Icon]) => (
         <Link key={href} href={href} className={`nav-link${isActive(href) ? ' active' : ''}`}
           aria-current={isActive(href) ? 'page' : undefined} title={label}>
           <Icon /><span>{label}</span>

@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { PlusIcon, ScanIcon } from '@/components/Icons';
-
-const OPEN_ORDER_STATUSES = ['Pending', 'Approved', 'Sent'];
+import { EXPIRATION_WARNING_DAYS } from '@/lib/alerts/logic';
+import { OPEN_ORDER_STATUSES } from '@/lib/orders/logic';
 
 function greeting() {
   const hour = new Date().getHours();
@@ -36,10 +36,11 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function load() {
-      const [meRes, productsRes, alertsRes] = await Promise.all([
+      const [meRes, productsRes, alertsRes, ordersRes] = await Promise.all([
         fetch('/api/auth/me'),
         fetch('/api/products'),
         fetch('/api/alerts?unread=true'),
+        fetch('/api/purchase-orders'),
       ]);
       if ([meRes, productsRes, alertsRes].some((r) => r.status === 401)) return router.push('/login');
       if (!productsRes.ok) return setError('Could not load inventory.');
@@ -48,11 +49,7 @@ export default function DashboardPage() {
       setMe(user);
       setProducts(await productsRes.json());
       if (alertsRes.ok) setAlerts(await alertsRes.json());
-
-      if (user?.role === 'Manager') {
-        const ordersRes = await fetch('/api/purchase-orders');
-        if (ordersRes.ok) setOrders(await ordersRes.json());
-      }
+      if (ordersRes.ok) setOrders(await ordersRes.json());
     }
     load();
   }, [router]);
@@ -93,23 +90,15 @@ export default function DashboardPage() {
           <span className="hint">At or below minimum</span>
         </Link>
         <Link href={inventoryLink('Almost Expired')} className="stat tone-warn">
-          <span className="label">Expiring within 7 days</span>
+          <span className="label">Expiring within {EXPIRATION_WARNING_DAYS} days</span>
           <span className="value">{count('Almost Expired')}</span>
           <span className="hint">{count('Expired')} already expired</span>
         </Link>
-        {me?.role === 'Manager' ? (
-          <Link href="/orders" className="stat tone-info">
-            <span className="label">Open purchase orders</span>
-            <span className="value">{orders ? openOrders.length : '—'}</span>
-            <span className="hint">{openOrders.filter((o) => o.status === 'Pending').length} awaiting approval</span>
-          </Link>
-        ) : (
-          <Link href="/alerts" className="stat tone-info">
-            <span className="label">Unread alerts</span>
-            <span className="value">{alerts.length}</span>
-            <span className="hint">Low stock and expiration</span>
-          </Link>
-        )}
+        <Link href="/orders" className="stat tone-info">
+          <span className="label">Open purchase orders</span>
+          <span className="value">{orders ? openOrders.length : '—'}</span>
+          <span className="hint">{openOrders.filter((o) => o.status === 'Pending Approval').length} awaiting approval</span>
+        </Link>
       </div>
 
       <div className="panel-grid">

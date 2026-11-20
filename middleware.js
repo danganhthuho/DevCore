@@ -3,6 +3,13 @@ import { createServerClient } from '@supabase/ssr';
 
 const IDLE_LIMIT_MS = 30 * 60 * 1000; // log out after 30 minutes of inactivity
 const PUBLIC_PATHS = ['/login', '/api/auth/login'];
+const MFA_PATHS = ['/login', '/api/auth/mfa', '/api/auth/logout'];
+
+const DENY_MESSAGES = {
+  login: 'Not logged in.',
+  expired: 'Session expired. Please log in again.',
+  mfa: 'Enter the code from your authenticator app to continue.',
+};
 
 export async function middleware(request) {
   let response = NextResponse.next({ request });
@@ -33,13 +40,20 @@ export async function middleware(request) {
   const isPublic = PUBLIC_PATHS.some((p) => path.startsWith(p));
 
   if (!user) {
-    return isPublic ? response : deny(request, response, false);
+    return isPublic ? response : deny(request, response, 'login');
   }
 
   const lastActive = Number(request.cookies.get('last_active')?.value || 0);
   if (lastActive && Date.now() - lastActive > IDLE_LIMIT_MS) {
     await supabase.auth.signOut();
-    return deny(request, response, true);
+    return deny(request, response, 'expired');
+  }
+
+  // MFA on but the code hasn't been entered yet: only the login page and
+  // the code check are allowed (see lib/auth/mfa.js).
+  const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (aal?.nextLevel === 'aal2' && aal.currentLevel !== 'aal2') {
+    return MFA_PATHS.some((p) => path.startsWith(p)) ? response : deny(request, response, 'mfa');
   }
 
   // Already logged in: skip the sign-in form and go to the dashboard.
@@ -62,20 +76,20 @@ export async function middleware(request) {
 
 // Sends API calls a 401 and page visits to /login, keeping any cookie
 // changes (such as a sign-out) that Supabase made on `response`.
-function deny(request, response, expired) {
+// reason: 'login' (no session), 'expired' (idle timeout) or 'mfa' (code needed).
+function deny(request, response, reason) {
   let denied;
   if (request.nextUrl.pathname.startsWith('/api/')) {
-    const error = expired ? 'Session expired. Please log in again.' : 'Not logged in.';
-    denied = NextResponse.json({ error }, { status: 401 });
+    denied = NextResponse.json({ error: DENY_MESSAGES[reason] }, { status: 401 });
   } else {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
-    url.search = expired ? '?expired=1' : '';
+    url.search = reason === 'login' ? '' : `?${reason}=1`;
     denied = NextResponse.redirect(url);
   }
 
   response.cookies.getAll().forEach((cookie) => denied.cookies.set(cookie));
-  denied.cookies.delete('last_active');
+  if (reason !== 'mfa') denied.cookies.delete('last_active');
   return denied;
 }
 

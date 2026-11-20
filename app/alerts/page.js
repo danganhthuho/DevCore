@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/components/Feedback';
+import { isManager } from '@/lib/auth/roles';
 
 const ALERT_BADGE = {
   LOW_STOCK: 'low-stock',
@@ -66,6 +67,18 @@ export default function AlertsPage() {
     else setError('Could not mark the alert as read.');
   }
 
+  // SFDS 6.2 alert card: clicking opens the related product and marks the alert read.
+  async function openAlert(alert) {
+    if (!alert.is_read) {
+      await fetch(`/api/alerts/${alert.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_read: true }),
+      });
+    }
+    router.push(`/products/${alert.product_id}/edit`);
+  }
+
   async function generateForecast(productId) {
     setBusy(`forecast-${productId}`);
     const res = await fetch(`/api/forecasts/${productId}`, { method: 'POST' });
@@ -100,7 +113,7 @@ export default function AlertsPage() {
     setBusy(null);
 
     if (!res.ok) return setError(body.error || 'Could not create purchase order.');
-    toast(`Purchase order #${body.id} created.`);
+    toast(`Purchase order #${body.id} created and waiting for approval.`);
     router.push('/orders');
   }
 
@@ -126,9 +139,13 @@ export default function AlertsPage() {
                   </thead>
                   <tbody>
                     {alerts.map((a) => (
-                      <tr key={a.id} className={a.is_read ? 'row-muted' : ''}>
+                      <tr key={a.id} className={a.is_read ? 'row-muted' : 'row-unread'}>
                         <td><span className={`badge ${ALERT_BADGE[a.type] ?? 'neutral'}`}>{a.type.replace('_', ' ').toLowerCase()}</span></td>
-                        <td>{a.products?.name ?? `#${a.product_id}`}</td>
+                        <td>
+                          <button className="link-button" onClick={() => openAlert(a)} title="Open product">
+                            {a.products?.name ?? `#${a.product_id}`}
+                          </button>
+                        </td>
                         <td>{a.message}</td>
                         <td>{formatDate(a.created_at)}</td>
                         <td>{a.is_read ? 'Read' : 'Unread'}</td>
@@ -169,15 +186,13 @@ export default function AlertsPage() {
                           <button className="secondary small" disabled={busy === `forecast-${r.product_id}`} onClick={() => generateForecast(r.product_id)}>
                             Generate Forecast
                           </button>
-                          {role === 'Manager' && (
-                            <button
-                              className="small"
-                              disabled={!r.supplier_id || !r.needs_reorder || busy === `order-${r.product_id}`}
-                              title={!r.needs_reorder ? 'Stock is above the recommended level.' : undefined}
-                              onClick={() => createOrder(r)}>
-                              Create Order
-                            </button>
-                          )}
+                          <button
+                            className="small"
+                            disabled={!r.supplier_id || !r.needs_reorder || busy === `order-${r.product_id}`}
+                            title={!r.needs_reorder ? 'Stock is above the recommended level.' : undefined}
+                            onClick={() => createOrder(r)}>
+                            {isManager(role) ? 'Create order' : 'Request order'}
+                          </button>
                         </td>
                       </tr>
                     ))}

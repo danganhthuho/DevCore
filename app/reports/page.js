@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { DownloadIcon } from '@/components/Icons';
+import { EXPIRATION_WARNING_DAYS } from '@/lib/alerts/logic';
 
 const money = (n) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 
@@ -34,7 +35,7 @@ export default function ReportsPage() {
   if (error) return <main>{header}<p className="error" role="alert">{error}</p></main>;
   if (!report) return <main>{header}<p className="muted">Loading…</p></main>;
 
-  const { totals, byCategory } = report;
+  const { totals, byCategory, waste } = report;
 
   return (
     <main>
@@ -54,7 +55,7 @@ export default function ReportsPage() {
         <div className="stat tone-warn">
           <span className="label">Almost expired</span>
           <span className="value">{totals.almostExpired}</span>
-          <span className="hint">Within 7 days</span>
+          <span className="hint">Within {EXPIRATION_WARNING_DAYS} days</span>
         </div>
         <div className="stat tone-info">
           <span className="label">Expired</span>
@@ -81,6 +82,47 @@ export default function ReportsPage() {
           </tbody>
         </table>
       </div>
+
+      {waste && (
+        <>
+          <h2 style={{ marginTop: 32 }}>Waste in the last {waste.days} days</h2>
+          <div className="stat-grid">
+            <div className="stat tone-danger">
+              <span className="label">Value lost</span>
+              <span className="value">{money(waste.value)}</span>
+              <span className="hint">{waste.units.toLocaleString()} units thrown away</span>
+            </div>
+            {waste.byReason.map((r) => (
+              <div key={r.reason} className="stat tone-warn">
+                <span className="label">{r.reason}</span>
+                <span className="value">{r.units.toLocaleString()}</span>
+                <span className="hint">{money(r.value)} lost</span>
+              </div>
+            ))}
+          </div>
+
+          {waste.topProducts.length === 0 ? (
+            <p className="muted">No waste recorded in this period. Record waste from a product&apos;s Edit page.</p>
+          ) : (
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Most wasted products</th><th className="num">Units</th><th className="num">Value lost</th></tr>
+                </thead>
+                <tbody>
+                  {waste.topProducts.map((p) => (
+                    <tr key={p.name}>
+                      <td><strong>{p.name}</strong></td>
+                      <td className="num">{p.units.toLocaleString()}</td>
+                      <td className="num">{money(p.value)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
     </main>
   );
 }
