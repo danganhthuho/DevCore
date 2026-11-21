@@ -231,8 +231,8 @@ There are also tests for stock status and the inventory report/CSV export.
 
 DevCore – CMPE 131, Section 05. 
 
--Project Manager: Dang Ahn Thu Ho​
--System Architect: Alexander Ershov​
--Quality Assurance: Paing Thu​
--Product Marketing Manager: Aidana Muralieva​
--Developers: Thomas Johnson & Khang Ngo​
+- Project Manager: Dang Ahn Thu Ho​
+- System Architect: Alexander Ershov​
+- Quality Assurance: Paing Thu​
+- Product Marketing Manager: Aidana Muralieva​
+- Developers: Thomas Johnson & Khang Ngo​
