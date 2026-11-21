@@ -5,6 +5,10 @@ import { useRouter } from 'next/navigation';
 import { useConfirm, useToast } from '@/components/Feedback';
 import { isManager } from '@/lib/auth/roles';
 import { SkeletonLines } from '@/components/Skeleton';
+import Link from 'next/link';
+import EmptyState from '@/components/EmptyState';
+import { BellIcon, BoxIcon, CheckIcon, PrinterIcon, TagIcon } from '@/components/Icons';
+import { formatMoney } from '@/lib/format';
 
 const ALERT_BADGE = {
   LOW_STOCK: 'low-stock',
@@ -13,6 +17,8 @@ const ALERT_BADGE = {
   REORDER: 'order-pending',
   ORDER_STATUS: 'order-approved',
 };
+
+const MARKDOWN_PREVIEW = 8; // rows shown before "Show all"
 
 function formatDate(value) {
   return value ? new Date(value).toLocaleString() : '—';
@@ -24,6 +30,8 @@ export default function AlertsPage() {
   const confirm = useConfirm();
   const [alerts, setAlerts] = useState([]);
   const [recommendations, setRecommendations] = useState([]);
+  const [markdowns, setMarkdowns] = useState(null);
+  const [allMarkdowns, setAllMarkdowns] = useState(false);
   const [role, setRole] = useState('Staff');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -31,10 +39,11 @@ export default function AlertsPage() {
 
   // Only the first load shows placeholders; later reloads update in place.
   const load = useCallback(async () => {
-    const [alertsRes, reorderRes, meRes] = await Promise.all([
+    const [alertsRes, reorderRes, meRes, markdownRes] = await Promise.all([
       fetch('/api/alerts'),
       fetch('/api/reorder?all=true'),
       fetch('/api/auth/me'),
+      fetch('/api/markdowns'),
     ]);
 
     if ([alertsRes, reorderRes, meRes].some((res) => res.status === 401)) {
@@ -51,6 +60,7 @@ export default function AlertsPage() {
     setAlerts(await alertsRes.json());
     setRecommendations(await reorderRes.json());
     if (meRes.ok) setRole((await meRes.json()).role);
+    setMarkdowns(markdownRes.ok ? await markdownRes.json() : null);
     setError('');
     setLoading(false);
     window.dispatchEvent(new Event('alerts-changed')); // refresh the sidebar count
@@ -167,8 +177,9 @@ export default function AlertsPage() {
       <div className="page-header">
         <div>
           <h1>Alerts & Reorder</h1>
-          <p>Low-stock and expiration alerts, demand forecasts and reorder suggestions.</p>
+          <p>Low-stock and expiration alerts, discount suggestions, demand forecasts and reorders.</p>
         </div>
+        <Link href="/reorder-list" className="button secondary"><PrinterIcon size={16} /> Reorder list</Link>
       </div>
 
       {error && <p className="error" role="alert">{error}</p>}
@@ -188,7 +199,11 @@ export default function AlertsPage() {
                 </button>
               )}
             </div>
-            {alerts.length === 0 ? <p>No alerts yet.</p> : (
+            {alerts.length === 0 ? (
+              <EmptyState icon={BellIcon} title="No alerts yet">
+                You&apos;ll be notified here when a product runs low, is about to expire, or needs reordering.
+              </EmptyState>
+            ) : (
               <div className="table-wrap">
                 <table>
                   <thead>
@@ -221,7 +236,64 @@ export default function AlertsPage() {
             )}
           </section>
 
-          <section className="section-card">
+          {markdowns && (
+            <section className="section-card">
+              <div className="panel-head">
+                <h2>Sell before it spoils</h2>
+                {markdowns.rows.length > 0 && (
+                  <span className="markdown-total">
+                    Recover <strong>{formatMoney(markdowns.total_recovered)}</strong> of {formatMoney(markdowns.total_at_risk)} at risk
+                  </span>
+                )}
+              </div>
+              <p className="muted">
+                Stock that won&apos;t sell before it expires at the last 30 days&apos; pace, with a suggested discount:
+                50% with 0–2 days left, 30% with 3–5, 20% with 6–14.
+              </p>
+              {markdowns.rows.length === 0 ? (
+                <EmptyState icon={CheckIcon} title="Nothing at risk">
+                  Everything expiring in the next 14 days should sell in time at its current pace.
+                </EmptyState>
+              ) : (
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Product</th><th>Expires</th><th className="num">On hand</th><th className="num">Will sell</th>
+                        <th className="num">At risk</th><th>Suggestion</th><th className="num">Recover</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(allMarkdowns ? markdowns.rows : markdowns.rows.slice(0, MARKDOWN_PREVIEW)).map((m) => (
+                        <tr key={m.product_id}>
+                          <td><Link href={`/products/${m.product_id}/edit`}>{m.name}</Link></td>
+                          <td>{m.days_left === 0 ? 'Today' : m.days_left === 1 ? 'Tomorrow' : `In ${m.days_left} days`}</td>
+                          <td className="num">{m.quantity}</td>
+                          <td className="num">{m.will_sell}</td>
+                          <td className="num"><strong>{m.at_risk}</strong></td>
+                          <td>
+                            <span className="markdown-tag"><TagIcon size={13} /> {m.discount_percent}% off</span>{' '}
+                            <span className="muted"><s>{formatMoney(m.price)}</s> {formatMoney(m.sale_price)}</span>
+                          </td>
+                          <td className="num">
+                            <strong>{formatMoney(m.recovered)}</strong>
+                            <small className="muted"> vs {formatMoney(m.lost_if_not)} lost</small>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {markdowns.rows.length > MARKDOWN_PREVIEW && (
+                    <button type="button" className="link-button show-more" onClick={() => setAllMarkdowns((v) => !v)}>
+                      {allMarkdowns ? 'Show fewer' : `Show all ${markdowns.rows.length}`}
+                    </button>
+                  )}
+                </div>
+              )}
+            </section>
+          )}
+
+          <section className="section-card" id="reorder">
             <div className="panel-head">
               <h2>Reorder Recommendations</h2>
               {recommendations.some((r) => r.needs_reorder && r.supplier_id) && (
@@ -232,7 +304,11 @@ export default function AlertsPage() {
               )}
             </div>
             <p className="muted">Recommendation = minimum quantity + latest 30-day forecast − current quantity.</p>
-            {recommendations.length === 0 ? <p>No products yet.</p> : (
+            {recommendations.length === 0 ? (
+              <EmptyState icon={BoxIcon} title="No products yet" actions={[{ label: 'Add product', href: '/products/new' }]}>
+                Reorder suggestions appear once you have products with minimum stock levels.
+              </EmptyState>
+            ) : (
               <div className="table-wrap">
                 <table>
                   <thead>

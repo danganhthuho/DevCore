@@ -9,6 +9,9 @@ import { localIsoDate } from '@/lib/alerts/logic';
 import { useSettings } from '@/components/SettingsContext';
 import { SkeletonLines, SkeletonTile } from '@/components/Skeleton';
 import { OPEN_ORDER_STATUSES } from '@/lib/orders/logic';
+import EmptyState from '@/components/EmptyState';
+import SetupChecklist from '@/components/SetupChecklist';
+import { CheckIcon } from '@/components/Icons';
 
 function greeting() {
   const hour = new Date().getHours();
@@ -88,6 +91,8 @@ export default function DashboardPage() {
 
       {error && <p className="error" role="alert">{error}</p>}
 
+      <SetupChecklist role={me?.role} settings={settings} products={products} />
+
       <div className="stat-grid">
         {products == null ? [0, 1, 2, 3].map((i) => <SkeletonTile key={i} />) : (<>
         <div className="stat spark-tile">
@@ -125,7 +130,7 @@ export default function DashboardPage() {
             <h2>Needs attention</h2>
             <Link href="/alerts">View all alerts →</Link>
           </div>
-          {alerts == null ? <SkeletonLines lines={4} /> : alerts.length === 0 ? <p className="empty">No unread alerts. You&apos;re all caught up.</p> : (
+          {alerts == null ? <SkeletonLines lines={4} /> : alerts.length === 0 ? <EmptyState compact icon={CheckIcon} title="You're all caught up">No unread alerts.</EmptyState> : (
             <ul className="feed">
               {alerts.slice(0, 6).map((a) => (
                 <li key={a.id}>
@@ -147,7 +152,7 @@ export default function DashboardPage() {
             <h2>Running low</h2>
             <Link href={inventoryLink('Low stock')}>See all →</Link>
           </div>
-          {products == null ? <SkeletonLines lines={4} /> : runningLow.length === 0 ? <p className="empty">Nothing is below its minimum.</p> : (
+          {products == null ? <SkeletonLines lines={4} /> : runningLow.length === 0 ? <EmptyState compact icon={CheckIcon} title="Stock looks healthy">Nothing is below its minimum.</EmptyState> : (
             <ul className="feed">
               {runningLow.map((p) => (
                 <li key={p.id}>

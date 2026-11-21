@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import NavBar from '@/components/NavBar';
 import CommandPalette from '@/components/CommandPalette';
 import ScannerListener from '@/components/ScannerListener';
+import SessionWarning from '@/components/SessionWarning';
 import { FeedbackProvider } from '@/components/Feedback';
 import { SettingsProvider } from '@/components/SettingsContext';
 
@@ -57,6 +58,7 @@ export default function AppShell({ children }) {
           <div className="app-main">{children}</div>
           <CommandPalette role={role} />
           <ScannerListener />
+          <SessionWarning />
         </div>
       )}
       </SettingsProvider>

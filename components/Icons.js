@@ -80,3 +80,15 @@ export const PlusIcon = (p) => (
 export const DownloadIcon = (p) => (
   <Icon {...p}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="m7 10 5 5 5-5" /><path d="M12 15V3" /></Icon>
 );
+export const CheckIcon = (p) => (
+  <Icon {...p}><path d="M20 6 9 17l-5-5" /></Icon>
+);
+export const TagIcon = (p) => (
+  <Icon {...p}><path d="M12.6 2.6A2 2 0 0 0 11.2 2H4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 .6 1.4l8.7 8.7a2.4 2.4 0 0 0 3.4 0l6.6-6.6a2.4 2.4 0 0 0 0-3.4Z" /><circle cx="7.5" cy="7.5" r="1.5" /></Icon>
+);
+export const PrinterIcon = (p) => (
+  <Icon {...p}><path d="M6 9V3h12v6" /><rect x="3" y="9" width="18" height="8" rx="2" /><path d="M6 14h12v7H6Z" /></Icon>
+);
+export const ClockIcon = (p) => (
+  <Icon {...p}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></Icon>
+);

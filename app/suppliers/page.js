@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useConfirm, useToast } from '@/components/Feedback';
-import { PlusIcon } from '@/components/Icons';
+import { FactoryIcon, PlusIcon } from '@/components/Icons';
+import EmptyState from '@/components/EmptyState';
 import { SkeletonRows } from '@/components/Skeleton';
 
 const EMPTY = { name: '', contact_email: '', phone: '' };
@@ -136,7 +137,12 @@ export default function SuppliersPage() {
               </tr>
             ))}
             {suppliers?.length === 0 && (
-              <tr><td colSpan={5} className="empty">No suppliers yet. Add the companies you buy from.</td></tr>
+              <tr className="empty-row"><td colSpan={5}>
+                <EmptyState icon={FactoryIcon} title="No suppliers yet"
+                  actions={[{ label: 'Add supplier', onClick: () => open(null) }]}>
+                  Add the companies you buy from, then link them to products so reorders know where to go.
+                </EmptyState>
+              </td></tr>
             )}
           </tbody>
         </table>

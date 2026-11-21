@@ -10,6 +10,8 @@ import { CATEGORIES } from '@/lib/products/constants';
 import { STATUSES } from '@/lib/inventory/status';
 import { isManager } from '@/lib/auth/roles';
 import { SkeletonRows } from '@/components/Skeleton';
+import EmptyState from '@/components/EmptyState';
+import { BoxIcon, SearchIcon } from '@/components/Icons';
 
 const COLUMNS = [
     ['name', 'Name'],
@@ -196,6 +198,9 @@ export default function InventoryPage() {
     }, [router, confirm]);
 
     const filtered = search || category || status || supplier || expiresBy;
+    function clearFilters() {
+        setSearch(''); setCategory(''); setStatus(''); setSupplier(''); setExpiresBy('');
+    }
 
     // ---- Bulk actions ----
     // Only rows that are currently visible stay selected.
@@ -274,9 +279,7 @@ export default function InventoryPage() {
             <input type="date" aria-label="Expires on or before" title="Expires on or before"
             value={expiresBy} onChange={(e) => setExpiresBy(e.target.value)} />
             {filtered && (
-            <button className="secondary" onClick={() => {
-                setSearch(''); setCategory(''); setStatus(''); setSupplier(''); setExpiresBy('');
-            }}>Clear filters</button>
+            <button className="secondary" onClick={clearFilters}>Clear filters</button>
             )}
         </div>
 
@@ -360,8 +363,18 @@ export default function InventoryPage() {
                 </tr>
             ))}
             {loaded && sorted.length === 0 && (
-                <tr><td colSpan={COLUMNS.length + 2} className="empty">
-                    {filtered ? 'No products match these filters.' : 'No products yet. Add your first one.'}
+                <tr className="empty-row"><td colSpan={COLUMNS.length + 2}>
+                    {filtered ? (
+                    <EmptyState icon={SearchIcon} title="No products match these filters"
+                        actions={[{ label: 'Clear filters', onClick: clearFilters }]}>
+                        Try a different search, or clear the filters to see everything.
+                    </EmptyState>
+                    ) : (
+                    <EmptyState icon={BoxIcon} title="No products yet"
+                        actions={[{ label: 'Add product', href: '/products/new' }, { label: 'Import from CSV', href: '/products/import' }]}>
+                        Add products one at a time, scan a barcode, or import your whole catalog from a spreadsheet.
+                    </EmptyState>
+                    )}
                 </td></tr>
             )}
             </tbody>

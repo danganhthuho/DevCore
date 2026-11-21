@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { useConfirm, useToast } from '@/components/Feedback';
 import { isManager } from '@/lib/auth/roles';
 import { SkeletonLines } from '@/components/Skeleton';
+import EmptyState from '@/components/EmptyState';
+import { TruckIcon } from '@/components/Icons';
 
 const STATUS_BADGE = {
   'Pending Approval': 'order-pending',
@@ -201,7 +203,12 @@ export default function OrdersPage() {
                 </tr>
               ))}
               {orders.length === 0 && (
-                <tr><td colSpan={7} className="empty">No purchase orders yet.</td></tr>
+                <tr className="empty-row"><td colSpan={7}>
+                  <EmptyState icon={TruckIcon} title="No purchase orders yet"
+                    actions={[{ label: 'See reorder suggestions', href: '/alerts#reorder' }]}>
+                    Orders are created from the reorder suggestions, which use each product&apos;s minimum and demand forecast.
+                  </EmptyState>
+                </td></tr>
               )}
             </tbody>
           </table>
