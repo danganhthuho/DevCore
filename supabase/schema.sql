@@ -6,6 +6,7 @@ create table public.profiles (
   id         uuid primary key references auth.users (id) on delete cascade,
   username   varchar(100) not null unique,
   role       varchar(10)  not null default 'Staff' check (role in ('Staff', 'Manager', 'Owner')),
+  display_name varchar(40),  -- nickname shown instead of the email (set_my_display_name)
   created_at timestamptz  not null default now()
 );
 
@@ -43,7 +44,11 @@ create table public.demand_forecasts (
   product_id       int  not null references public.products (id) on delete cascade,
   forecast_date    date not null,
   predicted_demand int  not null check (predicted_demand >= 0),
-  generated_at     timestamptz not null default now()
+  generated_at     timestamptz not null default now(),
+  method             varchar(20),   -- 'ai-model' or 'moving-average'
+  accuracy           numeric(4,2) check (accuracy is null or (accuracy >= 0 and accuracy <= 1)),
+  explanation        text,
+  explanation_source varchar(20)    -- 'claude' or 'template'
 );
 
 create table public.alerts (
@@ -80,6 +85,31 @@ create table public.waste_records (
   recorded_at timestamptz not null default now()
 );
 
+-- Product history (Edit Product screen). actor_name is copied in when the
+-- row is written, so everyone can see who did it.
+create table public.product_activity (
+  id         bigserial primary key,
+  product_id int  not null references public.products (id) on delete cascade,
+  user_id    uuid not null references public.profiles (id),
+  actor_name varchar(100) not null,
+  action     varchar(20)  not null,
+  detail     varchar(300),
+  created_at timestamptz  not null default now()
+);
+create index product_activity_product_idx on public.product_activity (product_id, created_at desc);
+
+-- Store-wide settings: always exactly one row (Settings page).
+create table public.app_settings (
+  id                      smallint primary key default 1 check (id = 1),
+  store_name              varchar(60) not null default 'My Store',
+  time_zone               varchar(64) not null default 'America/Los_Angeles',
+  expiration_warning_days int         not null default 7 check (expiration_warning_days between 1 and 60),
+  currency                char(3)     not null default 'USD',
+  updated_at              timestamptz not null default now(),
+  updated_by              uuid references public.profiles (id)
+);
+insert into public.app_settings (id) values (1);
+
 -- Every new auth user gets a Staff profile. Promote the first Owner by hand;
 -- after that the Owner can change roles on the Team page:
 --   update public.profiles set role = 'Owner' where username = 'owner@example.com';
@@ -102,6 +132,20 @@ language sql stable security definer set search_path = public as $$
   );
 $$;
 
+-- Lets users change only their own nickname (they can't update their row,
+-- so they can't change their role).
+create function public.set_my_display_name(new_name text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  update public.profiles
+  set display_name = nullif(trim(new_name), '')
+  where id = auth.uid();
+end;
+$$;
+
+revoke all on function public.set_my_display_name(text) from public;
+grant execute on function public.set_my_display_name(text) to authenticated;
+
 create function public.is_owner() returns boolean
 language sql stable security definer set search_path = public as $$
   select exists (
@@ -118,6 +162,8 @@ alter table public.demand_forecasts enable row level security;
 alter table public.alerts           enable row level security;
 alter table public.purchase_orders  enable row level security;
 alter table public.waste_records    enable row level security;
+alter table public.product_activity enable row level security;
+alter table public.app_settings     enable row level security;
 
 create policy "profiles: read own, managers read all" on public.profiles
   for select to authenticated using (id = auth.uid() or public.is_manager());
@@ -158,6 +204,16 @@ create policy "purchase orders: create" on public.purchase_orders
   with check (created_by = auth.uid() and status = 'Pending Approval');
 create policy "purchase orders: managers update" on public.purchase_orders
   for update to authenticated using (public.is_manager()) with check (public.is_manager());
+
+create policy "settings: read" on public.app_settings
+  for select to authenticated using (true);
+create policy "settings: managers update" on public.app_settings
+  for update to authenticated using (public.is_manager()) with check (public.is_manager());
+
+create policy "activity: read" on public.product_activity
+  for select to authenticated using (true);
+create policy "activity: add" on public.product_activity
+  for insert to authenticated with check (user_id = auth.uid());
 
 create policy "waste: read" on public.waste_records
   for select to authenticated using (true);

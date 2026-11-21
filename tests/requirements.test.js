@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildProductAlerts } from '@/lib/alerts/logic';
 import { hasRole, isManager } from '@/lib/auth/roles';
+import { displayNameFor, validateDisplayName } from '@/lib/auth/profile';
 import { login } from '@/lib/auth/login';
 import { verifyCode } from '@/lib/auth/mfa';
 import { listProducts } from '@/lib/products/service';
@@ -118,5 +119,20 @@ describe('MFA', () => {
   it('rejects a code that is not 6 digits before calling Supabase', async () => {
     const result = await verifyCode({}, { factorId: 'f1', code: '12345' });
     expect(result.status).toBe(400);
+  });
+});
+
+describe('Nicknames', () => {
+  it('falls back to the part of the email before the @', () => {
+    expect(displayNameFor(null, 'islandcity57@gmail.com')).toBe('islandcity57');
+    expect(displayNameFor('  ', 'islandcity57@gmail.com')).toBe('islandcity57');
+    expect(displayNameFor('Thomas', 'islandcity57@gmail.com')).toBe('Thomas');
+  });
+
+  it('trims, allows clearing, and limits the length', () => {
+    expect(validateDisplayName('  Thomas   J  ').value).toBe('Thomas J');
+    expect(validateDisplayName('').value).toBe('');
+    expect(validateDisplayName('x'.repeat(41)).error).toBeDefined();
+    expect(validateDisplayName('<script>').error).toBeDefined();
   });
 });

@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 
 // In-app replacements for the browser's alert() and confirm().
 //   const toast = useToast();      toast('Product added.')  or  toast('Failed.', 'error')
+//   toast('Milk deleted.', 'success', { action: { label: 'Undo', onClick }, duration: 6000 })
 //   const confirm = useConfirm();  if (!(await confirm({ title, message }))) return;
 
 const FeedbackContext = createContext(null);
@@ -15,12 +16,11 @@ export function FeedbackProvider({ children }) {
 
   const dismiss = useCallback((id) => setToasts((list) => list.filter((t) => t.id !== id)), []);
 
-  const toast = useCallback((message, type = 'success') => {
+  const toast = useCallback((message, type = 'success', { action, duration = 4000 } = {}) => {
     const id = nextId.current++;
-    setToasts((list) => [...list, { id, message, type }]);
-    setTimeout(() => dismiss(id), 4000);
+    setToasts((list) => [...list, { id, message, type, action }]);
+    setTimeout(() => dismiss(id), duration);
   }, [dismiss]);
-
 
   const confirm = useCallback((options) => new Promise((resolve) => {
     setDialog({ ...options, resolve });
@@ -39,6 +39,11 @@ export function FeedbackProvider({ children }) {
         {toasts.map((t) => (
           <div key={t.id} className={`toast ${t.type}`}>
             <p>{t.message}</p>
+            {t.action && (
+              <button type="button" className="toast-action" onClick={() => { dismiss(t.id); t.action.onClick(); }}>
+                {t.action.label}
+              </button>
+            )}
             <button type="button" aria-label="Dismiss" onClick={() => dismiss(t.id)}>×</button>
           </div>
         ))}

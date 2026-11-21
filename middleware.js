@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import { IDLE_LIMIT_MS } from '@/lib/auth/idle'; // log out after 30 minutes of inactivity
 
-const IDLE_LIMIT_MS = 30 * 60 * 1000; // log out after 30 minutes of inactivity
-const PUBLIC_PATHS = ['/login', '/api/auth/login'];
+const PUBLIC_PATHS = ['/login', '/api/auth/login', '/api/auth/forgot', '/api/auth/demo', '/auth/callback'];
 const MFA_PATHS = ['/login', '/api/auth/mfa', '/api/auth/logout'];
 
 const DENY_MESSAGES = {
@@ -78,7 +78,7 @@ export async function middleware(request) {
 // changes (such as a sign-out) that Supabase made on `response`.
 // reason: 'login' (no session), 'expired' (idle timeout) or 'mfa' (code needed).
 function deny(request, response, reason) {
-  let denied;
+  let denied; 
   if (request.nextUrl.pathname.startsWith('/api/')) {
     denied = NextResponse.json({ error: DENY_MESSAGES[reason] }, { status: 401 });
   } else {
@@ -93,6 +93,8 @@ function deny(request, response, reason) {
   return denied;
 }
 
+// Skip Next.js internals, the install manifest and public images/icons (the
+// logo must load on the login page, before anyone is logged in).
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|icon.png|apple-icon.png|manifest.webmanifest|brand/|.*\\.(?:png|jpg|jpeg|svg|webp|ico)$).*)'],
 };

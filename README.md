@@ -1,3 +1,5 @@
+<p align="center"><img src="public/brand/devcore-logo.png" alt="DevCore" width="320"></p>
+
 # DevCore – AI Inventory Tracker
 
 Team project for CMPE 131 (Section 05).
@@ -41,6 +43,8 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 # Optional
 NEXT_PUBLIC_TIME_ZONE=America/Los_Angeles      # the store's time zone, for expiration dates
 NEXT_PUBLIC_EXPIRATION_WARNING_DAYS=7          # days before expiry that count as "Almost Expired"
+ANTHROPIC_API_KEY=sk-ant-...                    # Claude writes the forecast explanations (server only; without it a built-in sentence is used)
+DEMO_LOGIN=1                                    # one-click demo sign-in (presentations only; see lib/auth/demo.js)
 ```
 
 `.env.local` is git-ignored. Never commit it.
@@ -48,7 +52,7 @@ NEXT_PUBLIC_EXPIRATION_WARNING_DAYS=7          # days before expiry that count a
 ### 4. Set up the database (first time only)
 
 1. In Supabase, open **SQL Editor**, paste the contents of [`supabase/schema.sql`](supabase/schema.sql), and run it.
-   - **Database created before Nov 20, 2026?** Run [`supabase/migrations/20261120_requirements_gaps.sql`](supabase/migrations/20261120_requirements_gaps.sql) instead. It adds the Owner role, waste tracking and the TC-011 purchase-order statuses.
+   - **Database created before Nov 20, 2026?** Run the files in [`supabase/migrations/`](supabase/migrations/) instead, oldest first: `20261120_requirements_gaps.sql` (Owner role, waste tracking, TC-011 purchase-order statuses), then `20261121_display_name.sql` (nicknames), then `20261122_product_activity.sql` (product history), then `20261123_settings.sql` (store settings), then `20261124_ai_forecast.sql` (AI forecast method, accuracy and explanation).
 2. *(Optional, for QA)* Run [`supabase/seed.sql`](supabase/seed.sql) once: 5 suppliers, 120 products with edge cases (out of stock, at minimum, expired, expiring soon) and 90 days of sales history.
 3. Under **Authentication → Users**, add a user with an email and password, and tick **Auto Confirm User**. A `profiles` row with the role `Staff` is created automatically.
 4. Make the first Owner in the SQL Editor. After that, the Owner sets everyone else's role on the **Team** page:
@@ -72,22 +76,39 @@ Roles go Staff → Manager → Owner; each role can do everything the one before
 | Feature | Lowest role |
 | --- | --- |
 | Log in / log out, automatic logout after 30 minutes of inactivity | Staff |
-| Optional two-step verification with an authenticator app (Account page) | Staff |
+| Profile menu (bottom of the sidebar) → Settings: nickname, two-step verification, Light / Dark / System theme | Staff |
+| Collapse the sidebar to icons (button at its top, or ⌘\\) | Staff |
+| Bulk actions on Inventory: set category, record expired stock as waste | Staff |
+| Bulk delete products | Manager |
+| Settings → Store: name, time zone, expiry-warning days, currency | Manager |
+
 | Dashboard: stock, low-stock, expiring and open-order counts, alerts feed | Staff |
-| Search inventory by name, category, status, supplier and expiration date | Staff |
-| Add / edit products, update quantity, scan barcodes | Staff |
+| Search inventory by name, category, status, supplier and expiration date (remembered between visits) | Staff |
+| Add / edit products, scan barcodes, + / − stock buttons on the Inventory list | Staff |
+| **⌘K / Ctrl+K** quick search for products, barcodes, pages and actions | Staff |
+| USB / Bluetooth barcode scanners work on any page (scan → product opens, or "add new") | Staff |
+| Import products from CSV with a preview (matching barcodes update existing products) | Staff |
+| Per-product sales chart (13 weeks + forecast) and history (who changed what) | Staff |
 | Record sales (feeds forecasting) and waste (expired / damaged items) | Staff |
-| Alerts: low stock, expiring, expired, reorder, order status | Staff |
-| Demand forecasts and reorder recommendations | Staff |
-| Request a purchase order (starts as *Pending Approval*) | Staff |
-| Approve (→ *Submitted*) or cancel purchase orders; mock supplier delivery | Manager |
-| Delete products; manage suppliers | Manager |
+| Alerts: low stock, expiring, expired, reorder, order status; unread count in the sidebar; mark all as read | Staff |
+| AI demand forecasts (with accuracy and a plain-English reason) and reorder recommendations | Staff |
+| Request a purchase order (starts as *Pending Approval*), or all recommended ones at once | Staff |
+| Approve (→ *Submitted*) or cancel purchase orders; mock supplier delivery (adds the units to stock) | Manager |
+| Delete products (with a few seconds to undo); manage suppliers | Manager |
 | Inventory report with waste summary, CSV export | Manager |
-| Change team members' roles (Team page) | Owner |
+| Settings → Team: change team members' roles | Owner |
 
 Roles are enforced twice: in the API routes (`requireRole`) and in the database through Supabase row-level security policies.
 
 Important events (logins, product and stock changes, order status, role changes, database errors) are logged as JSON lines to the server console; on Vercel see **Project → Logs**.
+
+### How the AI forecast works
+
+1. **Data:** each product's last 90 days of sales (SFDS Query 10).
+2. **Model** ([`lib/forecast/model.js`](lib/forecast/model.js)): a weighted ridge regression trained per product, with a trend term, day-of-week terms and recent days weighted more. The weights are learned from the data.
+3. **Backtest:** the model is trained without the last 14 days, predicts them, and is scored against what really sold. If it doesn't beat the 90-day moving average, the moving average is used instead. The score is shown as the forecast's accuracy.
+4. **Explanation** ([`lib/forecast/explain.js`](lib/forecast/explain.js)): with `ANTHROPIC_API_KEY` set, Claude (`claude-opus-5-5`) turns the model's numbers into a two-sentence reason for staff. It never produces the numbers. Without a key, or if the call fails, a built-in sentence is used.
+5. **Output:** saved to `demand_forecasts`; the reorder quantity is minimum + forecast − on hand.
 
 ## Project structure
 
@@ -101,8 +122,8 @@ app/
   orders/              Purchase orders
   suppliers/           Supplier management (Manager)
   reports/             Inventory and waste report (Manager)
-  team/                Roles (Owner)
-  account/             Two-step verification
+  settings/            Profile, Security, Appearance, Store (Manager), Team (Owner) tabs
+  account/, team/      Redirect to the matching Settings tab
   login/               Sign in (+ MFA code step)
 components/            AppShell, NavBar, Feedback (toasts/dialogs), ProductForm, StockActions, BarcodeScanner, Icons
 lib/
@@ -132,7 +153,10 @@ All endpoints require a logged-in session. Expired or missing sessions return `4
 | --- | --- | --- |
 | POST | `/api/auth/login` | Log in with `{ email, password }` |
 | POST | `/api/auth/logout` | Log out |
-| GET | `/api/auth/me` | Current user and role |
+| GET, PUT | `/api/settings` | Store settings / change them (Manager) |
+| POST | `/api/products/bulk` | `{ action: 'category' \| 'waste-expired' \| 'delete', ids, category? }` |
+| GET | `/api/dashboard/runway` | Days of stock left per product, grouped (dashboard) |
+| GET, PATCH | `/api/auth/me` | Current user, nickname and role / change nickname with `{ display_name }` |
 | GET, DELETE | `/api/auth/mfa` | MFA status / turn MFA off with `{ factorId }` |
 | POST | `/api/auth/mfa/enroll` | Start MFA setup (returns a QR code) |
 | POST | `/api/auth/mfa/verify` | Check a 6-digit code `{ factorId, code }` |
@@ -141,20 +165,26 @@ All endpoints require a logged-in session. Expired or missing sessions return `4
 | GET | `/api/products/:id` | Get one product |
 | PUT | `/api/products/:id` | Update a product |
 | DELETE | `/api/products/:id` | Delete a product (Manager only) |
-| PATCH | `/api/products/:id/quantity` | Update stock quantity |
+| PATCH | `/api/products/:id/quantity` | Set stock `{ quantity }` or add/remove `{ change: 1 }` |
 | GET | `/api/products/barcode/:code` | Look up a product by barcode |
-| POST | `/api/products/:id/sales` | Record a sale `{ quantity, sale_date? }` |
+| GET, POST | `/api/products/:id/sales` | Daily sales for the last 90 days / record a sale `{ quantity, sale_date? }` |
+| GET | `/api/products/:id/activity` | Product history, newest first |
+| GET, POST | `/api/products/import` | CSV template / import `{ records, dryRun }` (preview when `dryRun` is true) |
 | POST | `/api/products/:id/waste` | Record waste `{ quantity, reason, note? }` |
 | GET | `/api/reports/inventory?format=csv` | Inventory report with 30-day waste summary, as JSON or CSV (Manager) |
 | GET, POST | `/api/suppliers` | List suppliers / add one (Manager) |
 | PUT, DELETE | `/api/suppliers/:id` | Edit / delete a supplier (Manager) |
 | GET | `/api/alerts?unread=&type=&product_id=` | List alerts (also refreshes expiration and reorder alerts) |
+| GET | `/api/alerts/count` | `{ unread }` for the sidebar badge |
+| POST | `/api/alerts/read-all` | Mark every alert as read |
 | PATCH | `/api/alerts/:id` or `/api/alerts/:id/read` | Mark an alert read |
-| GET, POST | `/api/forecasts/:productId` | Latest forecast, or generate a new one |
+| GET, POST | `/api/forecasts/:productId` | Latest forecast, or generate a new one (AI model + Claude explanation) |
+| POST | `/api/forecasts` | Re-run the forecast for every product (Manager) |
 | GET | `/api/reorder` or `/api/reorder/recommendations` | Reorder recommendations (`?all=true` for every product) |
 | GET, POST | `/api/purchase-orders` | List orders / request one (starts as Pending Approval) |
+| POST | `/api/purchase-orders/bulk` | Request several orders `{ items: [...] }` |
 | PATCH | `/api/purchase-orders/:id` or `/:id/status` | Approve (`Submitted`) or cancel with `{ status }` (Manager) |
-| POST | `/api/purchase-orders/:id/supplier` | Mock supplier: Submitted → Delivered (Manager) |
+| POST | `/api/purchase-orders/:id/supplier` | Mock supplier: Submitted → Delivered, adds the units to stock (Manager) |
 | GET | `/api/users` | Team members and roles (Owner) |
 | PATCH | `/api/users/:id` | Change a role with `{ role }` (Owner) |
 

@@ -4,6 +4,9 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useConfirm, useToast } from '@/components/Feedback';
 import { isManager } from '@/lib/auth/roles';
+import { SkeletonLines } from '@/components/Skeleton';
+import EmptyState from '@/components/EmptyState';
+import { TruckIcon } from '@/components/Icons';
 
 const STATUS_BADGE = {
   'Pending Approval': 'order-pending',
@@ -110,7 +113,7 @@ export default function OrdersPage() {
     const body = await res.json().catch(() => ({}));
     setBusy(null);
     if (!res.ok) return toast(body.error || 'Mock supplier update failed.', 'error');
-    toast(`Order #${order.id} delivered.`);
+    toast(`Order #${order.id} delivered. ${order.quantity} added to stock.`);
     load();
   }
 
@@ -181,7 +184,7 @@ export default function OrdersPage() {
       </section>
 
       {error && <p className="error" role="alert">{error}</p>}
-      {loading ? <p className="muted">Loading…</p> : !error && (
+      {loading ? <section className="section-card"><SkeletonLines lines={6} /></section> : !error && (
         <div className="table-wrap">
           <table>
             <thead>
@@ -200,7 +203,12 @@ export default function OrdersPage() {
                 </tr>
               ))}
               {orders.length === 0 && (
-                <tr><td colSpan={7} className="empty">No purchase orders yet.</td></tr>
+                <tr className="empty-row"><td colSpan={7}>
+                  <EmptyState icon={TruckIcon} title="No purchase orders yet"
+                    actions={[{ label: 'See reorder suggestions', href: '/alerts#reorder' }]}>
+                    Orders are created from the reorder suggestions, which use each product&apos;s minimum and demand forecast.
+                  </EmptyState>
+                </td></tr>
               )}
             </tbody>
           </table>

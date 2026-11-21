@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useConfirm, useToast } from '@/components/Feedback';
-import { PlusIcon } from '@/components/Icons';
+import { FactoryIcon, PlusIcon } from '@/components/Icons';
+import EmptyState from '@/components/EmptyState';
+import { SkeletonRows } from '@/components/Skeleton';
 
 const EMPTY = { name: '', contact_email: '', phone: '' };
 
@@ -12,7 +14,7 @@ export default function SuppliersPage() {
   const router = useRouter();
   const toast = useToast();
   const confirm = useConfirm();
-  const [suppliers, setSuppliers] = useState([]);
+  const [suppliers, setSuppliers] = useState(null); // null = still loading
   const [editingId, setEditingId] = useState(null); // null = closed, 'new' = adding
   const [form, setForm] = useState(EMPTY);
   const [errors, setErrors] = useState({});
@@ -119,7 +121,8 @@ export default function SuppliersPage() {
             <tr><th>Name</th><th>Email</th><th>Phone</th><th className="num">Products</th><th>Actions</th></tr>
           </thead>
           <tbody>
-            {suppliers.map((s) => (
+            {suppliers == null && <SkeletonRows rows={4} cols={5} />}
+            {(suppliers ?? []).map((s) => (
               <tr key={s.id}>
                 <td><strong>{s.name}</strong></td>
                 <td>{s.contact_email || '—'}</td>
@@ -133,8 +136,13 @@ export default function SuppliersPage() {
                 </td>
               </tr>
             ))}
-            {suppliers.length === 0 && (
-              <tr><td colSpan={5} className="empty">No suppliers yet. Add the companies you buy from.</td></tr>
+            {suppliers?.length === 0 && (
+              <tr className="empty-row"><td colSpan={5}>
+                <EmptyState icon={FactoryIcon} title="No suppliers yet"
+                  actions={[{ label: 'Add supplier', onClick: () => open(null) }]}>
+                  Add the companies you buy from, then link them to products so reorders know where to go.
+                </EmptyState>
+              </td></tr>
             )}
           </tbody>
         </table>

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireUser } from '@/lib/auth/session';
 import { listProducts, createProduct } from '@/lib/products/service';
 import { onProductChanged } from '@/lib/events';
+import { recordActivity } from '@/lib/activity';
 
 export async function GET(request) {
   const auth = await requireUser();
@@ -24,7 +25,10 @@ export async function POST(request) {
 
   const body = await request.json().catch(() => ({}));
   const result = await createProduct(auth.supabase, body);
-  if (result.status === 201) await onProductChanged(auth.supabase, result.body.id);
+  if (result.status === 201) {
+    await onProductChanged(auth.supabase, result.body.id);
+    await recordActivity(auth, result.body.id, 'created', `Added with ${result.body.quantity} in stock`);
+  }
   return NextResponse.json(result.body, { status: result.status });
 }
 
