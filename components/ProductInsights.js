@@ -5,6 +5,7 @@ import { useToast } from '@/components/Feedback';
 import { ACTIVITY_LABELS } from '@/lib/activity';
 import { FORECAST_DAYS } from '@/lib/forecast/logic';
 import { Skeleton, SkeletonLines } from '@/components/Skeleton';
+import { SparkleIcon } from '@/components/Icons';
 
 const WEEKS = 13;
 
@@ -154,6 +155,19 @@ export default function ProductInsights({ productId, refreshKey }) {
             <span><strong>{forecast.predicted_demand}</strong> forecast next {FORECAST_DAYS} days</span>
           )}
         </div>
+        {forecast?.explanation && (
+          <div className="forecast-insight">
+            <SparkleIcon size={16} />
+            <p>
+              {forecast.explanation}
+              <small>
+                {forecast.method === 'ai-model' ? 'AI model trained on this product’s last 90 days of sales' : '90-day moving average (the AI model didn’t beat it on recent sales)'}
+                {forecast.accuracy != null && ` · ${Math.round(forecast.accuracy * 100)}% accurate on the last 2 weeks`}
+                {forecast.explanation_source === 'claude' && ' · Explained by Claude'}
+              </small>
+            </p>
+          </div>
+        )}
         {days === null ? <Skeleton height={180} radius={10} />
           : total90 === 0 ? <p className="empty">No sales recorded yet. Use “Record a sale” above.</p>
           : <SalesChart weeks={weeks} forecastPerWeek={forecastPerWeek} />}

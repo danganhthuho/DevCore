@@ -92,3 +92,6 @@ export const PrinterIcon = (p) => (
 export const ClockIcon = (p) => (
   <Icon {...p}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></Icon>
 );
+export const SparkleIcon = (p) => (
+  <Icon {...p}><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9Z" /><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8Z" /></Icon>
+);

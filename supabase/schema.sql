@@ -44,7 +44,11 @@ create table public.demand_forecasts (
   product_id       int  not null references public.products (id) on delete cascade,
   forecast_date    date not null,
   predicted_demand int  not null check (predicted_demand >= 0),
-  generated_at     timestamptz not null default now()
+  generated_at     timestamptz not null default now(),
+  method             varchar(20),   -- 'ai-model' or 'moving-average'
+  accuracy           numeric(4,2) check (accuracy is null or (accuracy >= 0 and accuracy <= 1)),
+  explanation        text,
+  explanation_source varchar(20)    -- 'claude' or 'template'
 );
 
 create table public.alerts (

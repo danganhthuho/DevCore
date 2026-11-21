@@ -7,7 +7,7 @@ import { isManager } from '@/lib/auth/roles';
 import { SkeletonLines } from '@/components/Skeleton';
 import Link from 'next/link';
 import EmptyState from '@/components/EmptyState';
-import { BellIcon, BoxIcon, CheckIcon, PrinterIcon, TagIcon } from '@/components/Icons';
+import { BellIcon, BoxIcon, CheckIcon, PrinterIcon, SparkleIcon, TagIcon } from '@/components/Icons';
 import { formatMoney } from '@/lib/format';
 
 const ALERT_BADGE = {
@@ -17,6 +17,22 @@ const ALERT_BADGE = {
   REORDER: 'order-pending',
   ORDER_STATUS: 'order-approved',
 };
+
+// Forecast number with how it was made: "AI · 82%" (model, backtest accuracy) or "Avg".
+function ForecastCell({ row }) {
+  if (!row.forecast_method) return row.predicted_demand;
+  const ai = row.forecast_method === 'ai-model';
+  const accuracy = row.forecast_accuracy == null ? '' : ` · ${Math.round(row.forecast_accuracy * 100)}%`;
+  return (
+    <span className="forecast-cell" title={row.forecast_explanation ?? undefined}>
+      {row.predicted_demand}
+      <span className={`forecast-method ${ai ? 'ai' : 'avg'}`}
+        aria-label={ai ? `AI model, ${accuracy ? `${Math.round(row.forecast_accuracy * 100)}% accurate on the last 2 weeks` : 'not yet scored'}` : 'Moving average'}>
+        {ai ? <SparkleIcon size={11} /> : null}{ai ? 'AI' : 'Avg'}{accuracy}
+      </span>
+    </span>
+  );
+}
 
 const MARKDOWN_PREVIEW = 8; // rows shown before "Show all"
 
@@ -109,11 +125,20 @@ export default function AlertsPage() {
     setBusy(null);
 
     if (!res.ok) return setError(body.error || 'Could not generate forecast.');
-    if (body.insufficientData) {
-      toast(`Forecast created with limited data (${body.recordCount} sales records).`, 'info');
-    } else {
-      toast(`Forecast updated: ${body.predictedDemand} units over the next ${body.forecastDays} days.`);
-    }
+    toast(`${body.predictedDemand} units forecast for the next ${body.forecastDays} days. ${body.explanation ?? ''}`.trim(),
+      'success', { duration: 9000 });
+    load();
+  }
+
+  // Re-run the AI forecast for every product (Managers).
+  async function refreshAllForecasts() {
+    setBusy('forecast-all');
+    const res = await fetch('/api/forecasts', { method: 'POST' });
+    const body = await res.json().catch(() => ({}));
+    setBusy(null);
+    if (!res.ok) return toast(body.error || 'Could not refresh the forecasts.', 'error');
+    toast(`${body.forecasted} forecasts updated: ${body.aiModel} by the AI model, ${body.movingAverage} by the moving average`
+      + (body.skipped ? `, ${body.skipped} skipped (not enough sales yet).` : '.'));
     load();
   }
 
@@ -296,14 +321,25 @@ export default function AlertsPage() {
           <section className="section-card" id="reorder">
             <div className="panel-head">
               <h2>Reorder Recommendations</h2>
+              <div className="page-actions">
+              {isManager(role) && recommendations.length > 0 && (
+                <button className="secondary small" onClick={refreshAllForecasts} disabled={busy === 'forecast-all'}>
+                  <SparkleIcon size={14} /> {busy === 'forecast-all' ? 'Forecasting…' : 'Refresh all forecasts'}
+                </button>
+              )}
               {recommendations.some((r) => r.needs_reorder && r.supplier_id) && (
                 <button className="small" onClick={orderAll} disabled={busy === 'order-all'}>
                   {busy === 'order-all' ? 'Requesting…'
                     : `Order all recommended (${recommendations.filter((r) => r.needs_reorder && r.supplier_id).length})`}
                 </button>
               )}
+              </div>
             </div>
-            <p className="muted">Recommendation = minimum quantity + latest 30-day forecast − current quantity.</p>
+            <p className="muted">
+              Recommendation = minimum quantity + 30-day forecast − current quantity. Forecasts come from an AI model trained on
+              each product&apos;s last 90 days of sales (trend and day-of-week patterns), tested on the last 2 weeks before it&apos;s
+              used. Hover a forecast for the reasoning.
+            </p>
             {recommendations.length === 0 ? (
               <EmptyState icon={BoxIcon} title="No products yet" actions={[{ label: 'Add product', href: '/products/new' }]}>
                 Reorder suggestions appear once you have products with minimum stock levels.
@@ -317,10 +353,13 @@ export default function AlertsPage() {
                   <tbody>
                     {recommendations.map((r) => (
                       <tr key={r.product_id}>
-                        <td>{r.name}</td>
+                        <td>
+                          {r.name}
+                          {r.forecast_explanation && <small className="forecast-note">{r.forecast_explanation}</small>}
+                        </td>
                         <td>{r.quantity}</td>
                         <td>{r.minimum_quantity}</td>
-                        <td>{r.predicted_demand}</td>
+                        <td><ForecastCell row={r} /></td>
                         <td><strong>{r.recommended_quantity}</strong></td>
                         <td>{r.supplier_name || 'Not assigned'}</td>
                         <td className="action-cell">
