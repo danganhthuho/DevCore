@@ -605,6 +605,28 @@ tr.row-selected td { background: var(--accent-soft); }
 /* ---------- Settings (tabs: Profile, Security, Appearance, Store, Team) ---------- */
 
 .settings-layout { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 28px; align-items: start; }
+.page-tabs {
+  display: flex; gap: 4px; margin: 0 0 16px; padding: 4px; overflow-x: auto;
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; width: fit-content; max-width: 100%;
+}
+.page-tabs button {
+  flex: none; gap: 8px; height: 36px; padding: 0 14px; white-space: nowrap;
+  background: none; color: var(--muted); font-weight: 600; border-radius: 9px;
+}
+.page-tabs button:hover { background: var(--surface); color: var(--text); }
+.page-tabs button.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+.tab-count {
+  min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; display: inline-grid; place-items: center;
+  background: var(--neutral-soft); color: var(--text); font-size: 12px; font-weight: 700;
+}
+.page-tabs button.active .tab-count { background: var(--accent-soft); color: var(--accent); }
+@media print { .page-tabs { display: none; } }
+@media (max-width: 640px) {
+  .page-tabs { width: 100%; min-width: 0; }
+  .page-tabs button { flex: 1 1 0; min-width: 0; justify-content: center; padding: 0 8px; gap: 6px; }
+  .page-tabs .tab-label-long { display: none; }
+}
+@media (min-width: 641px) { .page-tabs .tab-label-short { display: none; } }
 .settings-tabs { display: grid; gap: 2px; position: sticky; top: 24px; }
 .settings-tabs button {
   justify-content: flex-start; gap: 10px; height: 38px; padding: 0 12px;

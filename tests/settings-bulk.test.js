@@ -67,3 +67,21 @@ describe('Bulk actions', () => {
     expect(result.body.skipped).toEqual([{ id: 1, name: 'Milk', reason: 'not expired' }]);
   });
 });
+
+describe('Settings before the migration is run', () => {
+  it('treats Supabase\'s "table not found" (PGRST205) as not migrated and says so on save', async () => {
+    const { loadSettings, saveSettings, isMissingTable } = await import('@/lib/settings');
+    expect(isMissingTable({ code: 'PGRST205' })).toBe(true);
+    expect(isMissingTable({ code: '42P01' })).toBe(true);
+    expect(isMissingTable({ code: '23505' })).toBe(false);
+
+    const missing = { code: 'PGRST205', message: "Could not find the table 'public.app_settings' in the schema cache" };
+    const chain = { select: () => chain, update: () => chain, eq: () => chain, maybeSingle: async () => ({ data: null, error: missing }) };
+    const supabase = { from: () => chain };
+
+    expect((await loadSettings(supabase, { fresh: true })).migrated).toBe(false);
+    const saved = await saveSettings(supabase, 'u1', { store_name: 'Corner Market', time_zone: 'America/Los_Angeles', expiration_warning_days: 7, currency: 'USD' });
+    expect(saved.status).toBe(500);
+    expect(saved.body.error).toMatch(/run the settings migration/);
+  });
+});

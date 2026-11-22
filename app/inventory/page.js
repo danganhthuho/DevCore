@@ -637,12 +637,14 @@ export default function InventoryPage() {
                                             Edit
                                         </Link>
 
-                                        <button
-                                            className="link-button danger"
-                                            onClick={() => handleDelete(p)}
-                                        >
-                                            Delete
-                                        </button>
+                                        {isManager(role) && (
+                                            <button
+                                                className="link-button danger"
+                                                onClick={() => handleDelete(p)}
+                                            >
+                                                Delete
+                                            </button>
+                                        )}
                                     </div>
                                 </td>
                             </tr>
