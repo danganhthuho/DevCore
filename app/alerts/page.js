@@ -36,6 +36,18 @@ function ForecastCell({ row }) {
 
 const MARKDOWN_PREVIEW = 8; // rows shown before "Show all"
 
+// The page is split into tabs so reorders aren't buried under a long alert
+// list. The tab lives in the URL hash, so /alerts#reorder opens it directly.
+const TABS = [
+  { id: 'notifications', label: 'Notifications', Icon: BellIcon },
+  { id: 'discounts', label: 'Sell before it spoils', short: 'Discounts', Icon: TagIcon },
+  { id: 'reorder', label: 'Reorder', Icon: BoxIcon },
+];
+const tabFromHash = () => {
+  const id = typeof window === 'undefined' ? '' : window.location.hash.slice(1);
+  return TABS.some((t) => t.id === id) ? id : 'notifications';
+};
+
 function formatDate(value) {
   return value ? new Date(value).toLocaleString() : '—';
 }
@@ -52,6 +64,19 @@ export default function AlertsPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(null);
+  const [tab, setTab] = useState('notifications');
+
+  useEffect(() => {
+    const sync = () => setTab(tabFromHash());
+    sync();
+    window.addEventListener('hashchange', sync);
+    return () => window.removeEventListener('hashchange', sync);
+  }, []);
+
+  function chooseTab(id) {
+    setTab(id);
+    window.history.replaceState(null, '', `#${id}`);
+  }
 
   // Only the first load shows placeholders; later reloads update in place.
   const load = useCallback(async () => {
@@ -208,14 +233,32 @@ export default function AlertsPage() {
       </div>
 
       {error && <p className="error" role="alert">{error}</p>}
+
+      <nav className="page-tabs" role="tablist" aria-label="Alerts & Reorder sections">
+        {TABS.map(({ id, label, short, Icon }) => {
+          const count = loading ? null
+            : id === 'notifications' ? alerts.filter((a) => !a.is_read).length
+            : id === 'discounts' ? markdowns?.rows.length ?? 0
+            : recommendations.filter((r) => r.needs_reorder).length;
+          return (
+            <button key={id} type="button" role="tab" id={`tab-${id}`} aria-selected={tab === id}
+              aria-controls={`panel-${id}`} className={tab === id ? 'active' : ''} onClick={() => chooseTab(id)}>
+              <Icon size={16} />
+              {short ? <><span className="tab-label-long">{label}</span><span className="tab-label-short">{short}</span></> : label}
+              {count > 0 && <span className="tab-count" aria-label={`${count} ${id === 'notifications' ? 'unread' : 'items'}`}>{count}</span>}
+            </button>
+          );
+        })}
+      </nav>
+
       {loading ? (
         <>
-          <section className="section-card"><SkeletonLines lines={5} /></section>
           <section className="section-card"><SkeletonLines lines={5} /></section>
         </>
       ) : (
         <>
-          <section className="section-card">
+          {tab === 'notifications' && (
+          <section className="section-card" role="tabpanel" id="panel-notifications" aria-labelledby="tab-notifications">
             <div className="panel-head">
               <h2>Notifications</h2>
               {alerts.some((a) => !a.is_read) && (
@@ -260,9 +303,13 @@ export default function AlertsPage() {
               </div>
             )}
           </section>
+          )}
 
-          {markdowns && (
-            <section className="section-card">
+          {tab === 'discounts' && !markdowns && (
+            <section className="section-card"><SkeletonLines lines={5} /></section>
+          )}
+          {tab === 'discounts' && markdowns && (
+            <section className="section-card" role="tabpanel" id="panel-discounts" aria-labelledby="tab-discounts">
               <div className="panel-head">
                 <h2>Sell before it spoils</h2>
                 {markdowns.rows.length > 0 && (
@@ -318,7 +365,8 @@ export default function AlertsPage() {
             </section>
           )}
 
-          <section className="section-card" id="reorder">
+          {tab === 'reorder' && (
+          <section className="section-card" role="tabpanel" id="panel-reorder" aria-labelledby="tab-reorder">
             <div className="panel-head">
               <h2>Reorder Recommendations</h2>
               <div className="page-actions">
@@ -381,6 +429,7 @@ export default function AlertsPage() {
               </div>
             )}
           </section>
+          )}
         </>
       )}
     </main>

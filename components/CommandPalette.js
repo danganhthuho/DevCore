@@ -12,7 +12,7 @@ const ACTIONS = [
   { label: 'Scan a barcode', href: '/inventory?scan=1', Icon: ScanIcon },
   { label: 'Import products from CSV', href: '/products/import', Icon: UploadIcon },
   { label: 'Print the reorder list', href: '/reorder-list', Icon: PrinterIcon },
-  { label: 'Discount items about to expire', href: '/alerts', Icon: TagIcon },
+  { label: 'Discount items about to expire', href: '/alerts#discounts', Icon: TagIcon },
 ];
 
 // ⌘K / Ctrl+K anywhere (or the sidebar's Search button): jump to a product,
