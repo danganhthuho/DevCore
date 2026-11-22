@@ -139,6 +139,7 @@ export default function InventoryPage() {
             setProducts((list) => list.map((p) => (p.id === id ? { ...p, quantity: p.quantity - change } : p)));
             return toast(body.errors?.quantity || body.error || 'Could not update the stock.', 'error');
         }
+
         // Use the server's numbers (and new status badge) once all clicks are saved.
         if (pendingQty.current[id] === 0) {
             setProducts((list) => list.map((p) => (p.id === id ? body : p)));
@@ -158,22 +159,38 @@ export default function InventoryPage() {
 
         let undone = false;
         setHidden((h) => new Set(h).add(product.id));
-        const unhide = () => setHidden((h) => { const next = new Set(h); next.delete(product.id); return next; });
+        const unhide = () => setHidden((h) => {
+            const next = new Set(h);
+            next.delete(product.id);
+            return next;
+        });
 
         toast(`${product.name} deleted.`, 'success', {
             duration: UNDO_MS,
-            action: { label: 'Undo', onClick: () => { undone = true; unhide(); } },
+            action: {
+                label: 'Undo',
+                onClick: () => {
+                    undone = true;
+                    unhide();
+                },
+            },
         });
 
         setTimeout(async () => {
             if (undone) return;
-            const res = await fetch(`/api/products/${product.id}`, { method: 'DELETE' });
+
+            const res = await fetch(`/api/products/${product.id}`, {
+                method: 'DELETE',
+            });
+
             if (res.ok) {
                 setProducts((list) => list.filter((p) => p.id !== product.id));
                 unhide();
                 return;
             }
+
             unhide();
+
             const body = await res.json().catch(() => ({}));
             toast(body.error || `Could not delete ${product.name}.`, 'error');
         }, UNDO_MS);
@@ -181,7 +198,9 @@ export default function InventoryPage() {
 
     const handleScan = useCallback(async (code) => {
         setScanning(false);
+
         const res = await fetch(`/api/products/barcode/${encodeURIComponent(code)}`);
+
         if (res.ok) {
             const product = await res.json();
             router.push(`/products/${product.id}/edit`);
@@ -191,6 +210,7 @@ export default function InventoryPage() {
                 message: `No product has barcode ${code}. Add it as a new product?`,
                 confirmLabel: 'Add product',
             });
+
             if (add) router.push(`/products/new?barcode=${encodeURIComponent(code)}`);
         } else {
             setError('Barcode lookup failed.');
@@ -198,8 +218,13 @@ export default function InventoryPage() {
     }, [router, confirm]);
 
     const filtered = search || category || status || supplier || expiresBy;
+
     function clearFilters() {
-        setSearch(''); setCategory(''); setStatus(''); setSupplier(''); setExpiresBy('');
+        setSearch('');
+        setCategory('');
+        setStatus('');
+        setSupplier('');
+        setExpiresBy('');
     }
 
     // ---- Bulk actions ----
@@ -210,177 +235,463 @@ export default function InventoryPage() {
     const expiredVisible = sorted.filter((p) => p.status === 'Expired' && p.quantity > 0);
 
     function toggle(id) {
-        setSelected((s) => { const next = new Set(s); next.has(id) ? next.delete(id) : next.add(id); return next; });
+        setSelected((s) => {
+            const next = new Set(s);
+            next.has(id) ? next.delete(id) : next.add(id);
+            return next;
+        });
     }
+
     function toggleAll() {
         setSelected(allPicked ? new Set() : new Set(visibleIds));
     }
 
     async function runBulk(action, extra = {}) {
         const plural = `${picked.length} product${picked.length === 1 ? '' : 's'}`;
+
         const questions = {
-            delete: { title: `Delete ${plural}?`, message: 'This removes them and their sales history. It cannot be undone.', confirmLabel: 'Delete', danger: true },
+            delete: {
+                title: `Delete ${plural}?`,
+                message: 'This removes them and their sales history. It cannot be undone.',
+                confirmLabel: 'Delete',
+                danger: true,
+            },
+
             'waste-expired': {
-                title: `Throw away expired stock?`,
+                title: 'Throw away expired stock?',
                 message: `All remaining units of the expired items among the ${plural} are recorded as waste (reason: Expired) and taken out of stock. Items that aren’t expired are skipped.`,
-                confirmLabel: 'Record as waste', danger: true,
+                confirmLabel: 'Record as waste',
+                danger: true,
             },
         };
+
         if (questions[action] && !(await confirm(questions[action]))) return;
 
         setBulkBusy(true);
+
         const res = await fetch('/api/products/bulk', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action, ids: picked, ...extra }),
+            body: JSON.stringify({
+                action,
+                ids: picked,
+                ...extra,
+            }),
         });
+
         const body = await res.json().catch(() => ({}));
         setBulkBusy(false);
-        if (!res.ok) return toast(body.error || 'That didn’t work. Please try again.', 'error');
 
-        const verb = { category: 'updated', 'waste-expired': 'cleared as waste', delete: 'deleted' }[action];
+        if (!res.ok) {
+            return toast(
+                body.error || 'That didn’t work. Please try again.',
+                'error'
+            );
+        }
+
+        const verb = {
+            category: 'updated',
+            'waste-expired': 'cleared as waste',
+            delete: 'deleted',
+        }[action];
+
         const skippedNote = body.skipped.length
-            ? ` ${body.skipped.length} skipped (${[...new Set(body.skipped.map((x) => x.reason))].join(', ')}).`
+            ? ` ${body.skipped.length} skipped (${[
+                ...new Set(body.skipped.map((x) => x.reason)),
+            ].join(', ')}).`
             : '';
-        toast(`${body.done.length} product${body.done.length === 1 ? '' : 's'} ${verb}.${skippedNote}`, body.done.length ? 'success' : 'info');
+
+        toast(
+            `${body.done.length} product${body.done.length === 1 ? '' : 's'} ${verb}.${skippedNote}`,
+            body.done.length ? 'success' : 'info'
+        );
+
         setSelected(new Set());
         load();
     }
 
     return (
         <main>
-        <div className="page-header">
-            <div>
-                <h1>Inventory</h1>
-                <p>Search, filter and update every product in the store.</p>
+            <div className="page-header">
+                <div>
+                    <h1>Inventory</h1>
+                    <p>Search, filter and update every product in the store.</p>
+                </div>
+
+                <div className="page-actions">
+                    <button
+                        className="secondary"
+                        onClick={() => setScanning(true)}
+                    >
+                        <ScanIcon size={16} /> Scan
+                    </button>
+
+                    <Link
+                        className="button secondary"
+                        href="/products/import"
+                    >
+                        <UploadIcon size={16} /> Import
+                    </Link>
+
+                    <Link
+                        className="button"
+                        href="/products/new"
+                    >
+                        <PlusIcon size={16} /> Add product
+                    </Link>
+                </div>
             </div>
-            <div className="page-actions">
-                <button className="secondary" onClick={() => setScanning(true)}><ScanIcon size={16} /> Scan</button>
-                <Link className="button secondary" href="/products/import"><UploadIcon size={16} /> Import</Link>
-                <Link className="button" href="/products/new"><PlusIcon size={16} /> Add product</Link>
-            </div>
-        </div>
 
-        <div className="toolbar">
-            <input className="search" aria-label="Search products" placeholder="Search products by name…"
-            value={search} onChange={(e) => setSearch(e.target.value)} />
-            <select aria-label="Category" value={category} onChange={(e) => setCategory(e.target.value)}>
-            <option value="">All categories</option>
-            {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
-            </select>
-            <select aria-label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>
-            <option value="">All statuses</option>
-            {STATUSES.map((s) => <option key={s}>{s}</option>)}
-            </select>
-            <select aria-label="Supplier" value={supplier} onChange={(e) => setSupplier(e.target.value)}>
-            <option value="">All suppliers</option>
-            {suppliers.map((s) => <option key={s.id} value={String(s.id)}>{s.name}</option>)}
-            </select>
-            <input type="date" aria-label="Expires on or before" title="Expires on or before"
-            value={expiresBy} onChange={(e) => setExpiresBy(e.target.value)} />
-            {filtered && (
-            <button className="secondary" onClick={clearFilters}>Clear filters</button>
-            )}
-        </div>
+            <div className="toolbar">
+                <input
+                    className="search"
+                    aria-label="Search products"
+                    placeholder="Search products by name…"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                />
 
-        {scanning && <BarcodeScanner onDetected={handleScan} onClose={() => setScanning(false)} />}
-        {error && <p className="error" role="alert">{error}</p>}
+                <select
+                    aria-label="Category"
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                >
+                    <option value="">All categories</option>
 
-        {picked.length > 0 ? (
-            <div className="bulk-bar" role="region" aria-label="Bulk actions">
-                <strong>{picked.length} selected</strong>
-                <span className="bulk-group">
-                    <select aria-label="New category" value={bulkCategory} onChange={(e) => setBulkCategory(e.target.value)}>
-                        <option value="">Set category…</option>
-                        {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
-                    </select>
-                    <button className="secondary small" disabled={!bulkCategory || bulkBusy}
-                        onClick={() => runBulk('category', { category: bulkCategory })}>Apply</button>
-                </span>
-                <button className="secondary small" disabled={bulkBusy} onClick={() => runBulk('waste-expired')}>
-                    Record expired as waste
-                </button>
-                {isManager(role) && (
-                    <button className="danger small" disabled={bulkBusy} onClick={() => runBulk('delete')}>Delete</button>
+                    {CATEGORIES.map((c) => (
+                        <option key={c}>{c}</option>
+                    ))}
+                </select>
+
+                <select
+                    aria-label="Status"
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value)}
+                >
+                    <option value="">All statuses</option>
+
+                    {STATUSES.map((s) => (
+                        <option key={s}>{s}</option>
+                    ))}
+                </select>
+
+                <select
+                    aria-label="Supplier"
+                    value={supplier}
+                    onChange={(e) => setSupplier(e.target.value)}
+                >
+                    <option value="">All suppliers</option>
+
+                    {suppliers.map((s) => (
+                        <option
+                            key={s.id}
+                            value={String(s.id)}
+                        >
+                            {s.name}
+                        </option>
+                    ))}
+                </select>
+
+                <input
+                    type="date"
+                    aria-label="Expires on or before"
+                    title="Expires on or before"
+                    value={expiresBy}
+                    onChange={(e) => setExpiresBy(e.target.value)}
+                />
+
+                {filtered && (
+                    <button
+                        className="secondary"
+                        onClick={clearFilters}
+                    >
+                        Clear filters
+                    </button>
                 )}
-                <button className="link-button" onClick={() => setSelected(new Set())}>Clear selection</button>
             </div>
-        ) : expiredVisible.length > 0 && (
-            <div className="bulk-hint">
-                <span>{expiredVisible.length} expired product{expiredVisible.length === 1 ? '' : 's'} still in stock.</span>
-                <button className="link-button" onClick={() => setSelected(new Set(expiredVisible.map((p) => p.id)))}>
-                    Select them
-                </button>
-            </div>
-        )}
 
-        <div className="table-wrap">
-        <table>
-            <thead>
-            <tr>
-                <th className="check-col">
-                    <input type="checkbox" aria-label="Select all shown products" checked={allPicked}
-                        ref={(el) => { if (el) el.indeterminate = picked.length > 0 && !allPicked; }}
-                        onChange={toggleAll} />
-                </th>
-                {COLUMNS.map(([key, label, align]) => (
-                <th key={key} className={`sortable ${align ?? ''}`} onClick={() => toggleSort(key)}
-                    aria-sort={sort.key === key ? (sort.dir === 1 ? 'ascending' : 'descending') : undefined}>
-                    {label} {sort.key === key ? (sort.dir === 1 ? '▲' : '▼') : ''}
-                </th>
-                ))}
-                <th>Actions</th>
-            </tr>
-            </thead>
-            <tbody>
-            {!loaded && <SkeletonRows rows={8} cols={COLUMNS.length + 2} />}
-            {sorted.map((p) => (
-                <tr key={p.id} className={selected.has(p.id) ? 'row-selected' : ''}>
-                <td className="check-col">
-                    <input type="checkbox" aria-label={`Select ${p.name}`} checked={selected.has(p.id)} onChange={() => toggle(p.id)} />
-                </td>
-                <td><strong>{p.name}</strong></td>
-                <td>{p.category || '—'}</td>
-                <td className="num">
-                    <span className="stepper">
-                    <button type="button" aria-label={`Remove one ${p.name}`} disabled={p.quantity <= 0}
-                        onClick={() => changeQuantity(p, -1)}>−</button>
-                    <span className="value">{p.quantity}</span>
-                    <button type="button" aria-label={`Add one ${p.name}`} onClick={() => changeQuantity(p, 1)}>+</button>
-                    </span>
-                </td>
-                <td className="num">{p.minimum_quantity}</td>
-                <td>{p.expiration_date || '—'}</td>
-                <td><span className={`badge ${BADGE_CLASS[p.status]}`}>{p.status}</span></td>
-                <td>
-                    <div className="action-cell">
-                    <Link href={`/products/${p.id}/edit`}>Edit</Link>
-                    {isManager(role) && (
-                        <button className="link-button danger" onClick={() => handleDelete(p)}>Delete</button>
-                    )}
-                    </div>
-                </td>
-                </tr>
-            ))}
-            {loaded && sorted.length === 0 && (
-                <tr className="empty-row"><td colSpan={COLUMNS.length + 2}>
-                    {filtered ? (
-                    <EmptyState icon={SearchIcon} title="No products match these filters"
-                        actions={[{ label: 'Clear filters', onClick: clearFilters }]}>
-                        Try a different search, or clear the filters to see everything.
-                    </EmptyState>
-                    ) : (
-                    <EmptyState icon={BoxIcon} title="No products yet"
-                        actions={[{ label: 'Add product', href: '/products/new' }, { label: 'Import from CSV', href: '/products/import' }]}>
-                        Add products one at a time, scan a barcode, or import your whole catalog from a spreadsheet.
-                    </EmptyState>
-                    )}
-                </td></tr>
+            {scanning && (
+                <BarcodeScanner
+                    onDetected={handleScan}
+                    onClose={() => setScanning(false)}
+                />
             )}
-            </tbody>
-        </table>
-        </div>
-        <p className="table-footer">Showing {sorted.length} products</p>
+
+            {error && (
+                <p
+                    className="error"
+                    role="alert"
+                >
+                    {error}
+                </p>
+            )}
+
+            {picked.length > 0 ? (
+                <div
+                    className="bulk-bar"
+                    role="region"
+                    aria-label="Bulk actions"
+                >
+                    <strong>{picked.length} selected</strong>
+
+                    <span className="bulk-group">
+                        <select
+                            aria-label="New category"
+                            value={bulkCategory}
+                            onChange={(e) => setBulkCategory(e.target.value)}
+                        >
+                            <option value="">Set category…</option>
+
+                            {CATEGORIES.map((c) => (
+                                <option key={c}>{c}</option>
+                            ))}
+                        </select>
+
+                        <button
+                            className="secondary small"
+                            disabled={!bulkCategory || bulkBusy}
+                            onClick={() =>
+                                runBulk('category', {
+                                    category: bulkCategory,
+                                })
+                            }
+                        >
+                            Apply
+                        </button>
+                    </span>
+
+                    <button
+                        className="secondary small"
+                        disabled={bulkBusy}
+                        onClick={() => runBulk('waste-expired')}
+                    >
+                        Record expired as waste
+                    </button>
+
+                    {isManager(role) && (
+                        <button
+                            className="danger small"
+                            disabled={bulkBusy}
+                            onClick={() => runBulk('delete')}
+                        >
+                            Delete
+                        </button>
+                    )}
+
+                    <button
+                        className="link-button"
+                        onClick={() => setSelected(new Set())}
+                    >
+                        Clear selection
+                    </button>
+                </div>
+            ) : expiredVisible.length > 0 && (
+                <div className="bulk-hint">
+                    <span>
+                        {expiredVisible.length} expired product
+                        {expiredVisible.length === 1 ? '' : 's'} still in stock.
+                    </span>
+
+                    <button
+                        className="link-button"
+                        onClick={() =>
+                            setSelected(
+                                new Set(
+                                    expiredVisible.map((p) => p.id)
+                                )
+                            )
+                        }
+                    >
+                        Select them
+                    </button>
+                </div>
+            )}
+
+            <div className="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th className="check-col">
+                                <input
+                                    type="checkbox"
+                                    aria-label="Select all shown products"
+                                    checked={allPicked}
+                                    ref={(el) => {
+                                        if (el) {
+                                            el.indeterminate =
+                                                picked.length > 0 && !allPicked;
+                                        }
+                                    }}
+                                    onChange={toggleAll}
+                                />
+                            </th>
+
+                            {COLUMNS.map(([key, label, align]) => (
+                                <th
+                                    key={key}
+                                    className={`sortable ${align ?? ''}`}
+                                    onClick={() => toggleSort(key)}
+                                    aria-sort={
+                                        sort.key === key
+                                            ? sort.dir === 1
+                                                ? 'ascending'
+                                                : 'descending'
+                                            : undefined
+                                    }
+                                >
+                                    {label}{' '}
+                                    {sort.key === key
+                                        ? sort.dir === 1
+                                            ? '▲'
+                                            : '▼'
+                                        : ''}
+                                </th>
+                            ))}
+
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {!loaded && (
+                            <SkeletonRows
+                                rows={8}
+                                cols={COLUMNS.length + 2}
+                            />
+                        )}
+
+                        {sorted.map((p) => (
+                            <tr
+                                key={p.id}
+                                className={
+                                    selected.has(p.id)
+                                        ? 'row-selected'
+                                        : ''
+                                }
+                            >
+                                <td className="check-col">
+                                    <input
+                                        type="checkbox"
+                                        aria-label={`Select ${p.name}`}
+                                        checked={selected.has(p.id)}
+                                        onChange={() => toggle(p.id)}
+                                    />
+                                </td>
+
+                                <td>
+                                    <strong>{p.name}</strong>
+                                </td>
+
+                                <td>{p.category || '—'}</td>
+
+                                <td className="num">
+                                    <span className="stepper">
+                                        <button
+                                            type="button"
+                                            aria-label={`Remove one ${p.name}`}
+                                            disabled={p.quantity <= 0}
+                                            onClick={() =>
+                                                changeQuantity(p, -1)
+                                            }
+                                        >
+                                            −
+                                        </button>
+
+                                        <span className="value">
+                                            {p.quantity}
+                                        </span>
+
+                                        <button
+                                            type="button"
+                                            aria-label={`Add one ${p.name}`}
+                                            onClick={() =>
+                                                changeQuantity(p, 1)
+                                            }
+                                        >
+                                            +
+                                        </button>
+                                    </span>
+                                </td>
+
+                                <td className="num">
+                                    {p.minimum_quantity}
+                                </td>
+
+                                <td>
+                                    {p.expiration_date || '—'}
+                                </td>
+
+                                <td>
+                                    <span
+                                        className={`badge ${BADGE_CLASS[p.status]}`}
+                                    >
+                                        {p.status}
+                                    </span>
+                                </td>
+
+                                <td>
+                                    <div className="action-cell">
+                                        <Link
+                                            href={`/products/${p.id}/edit`}
+                                        >
+                                            Edit
+                                        </Link>
+
+                                        <button
+                                            className="link-button danger"
+                                            onClick={() => handleDelete(p)}
+                                        >
+                                            Delete
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        ))}
+
+                        {loaded && sorted.length === 0 && (
+                            <tr className="empty-row">
+                                <td colSpan={COLUMNS.length + 2}>
+                                    {filtered ? (
+                                        <EmptyState
+                                            icon={SearchIcon}
+                                            title="No products match these filters"
+                                            actions={[
+                                                {
+                                                    label: 'Clear filters',
+                                                    onClick: clearFilters,
+                                                },
+                                            ]}
+                                        >
+                                            Try a different search, or clear the filters to see everything.
+                                        </EmptyState>
+                                    ) : (
+                                        <EmptyState
+                                            icon={BoxIcon}
+                                            title="No products yet"
+                                            actions={[
+                                                {
+                                                    label: 'Add product',
+                                                    href: '/products/new',
+                                                },
+                                                {
+                                                    label: 'Import from CSV',
+                                                    href: '/products/import',
+                                                },
+                                            ]}
+                                        >
+                                            Add products one at a time, scan a barcode, or import your whole catalog from a spreadsheet.
+                                        </EmptyState>
+                                    )}
+                                </td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
+
+            <p className="table-footer">
+                Showing {sorted.length} products
+            </p>
         </main>
     );
 }
